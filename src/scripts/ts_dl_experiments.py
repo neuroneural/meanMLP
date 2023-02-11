@@ -9,6 +9,7 @@ import shutil
 import pandas as pd
 from apto.utils.misc import boolean_flag
 from apto.utils.report import get_classification_report
+from sklearn.metrics import accuracy_score
 import numpy as np
 from sklearn.model_selection import StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -81,7 +82,7 @@ class Experiment(IExperiment):
         # main dataset name (used for training)
         self.dataset_name = self.config["dataset"] = dataset
         # if dataset should be scaled by sklearn's StandardScaler
-        self.multiclass = multiclass
+        self.multiclass = self.config["multiclass"] = multiclass
         self._scaled = self.config["scaled"] = scaled
 
         if test_datasets is None:  # additional test datasets
@@ -136,7 +137,7 @@ class Experiment(IExperiment):
         # save initial config
         logfile = f"{self.logdir}/config.json"
         with open(logfile, "w") as fp:
-            json.dump(self.config, fp)
+            json.dump(self.config, fp, indent=2)
 
         if torch.cuda.is_available():
             dev = "cuda:0"
@@ -337,7 +338,7 @@ class Experiment(IExperiment):
         with open(self.config["run_config_path"], "w") as fp:
             json.dump(self.model_config, fp)
 
-    def run_dataset(self) -> None:
+    def run_dataset(self, thr_tune: bool = False):
         all_scores, all_targets = [], []
         total_loss = 0.0
         self._model.train(self.is_train_dataset)
@@ -362,7 +363,14 @@ class Experiment(IExperiment):
 
         y_test = np.hstack(all_targets)
         y_score = np.vstack(all_scores)
-        y_pred = np.argmax(y_score, axis=-1).astype(np.int32)
+        if thr_tune is True:
+            return y_test, y_score
+
+        if self.dataset_key == "test":
+            y_score_tuned = y_score - self.best_threshold
+            y_pred = np.argmax(y_score_tuned, axis=-1).astype(np.int32)
+        else:
+            y_pred = np.argmax(y_score, axis=-1).astype(np.int32)
 
         report = get_classification_report(
             y_true=y_test, y_pred=y_pred, y_score=y_score, beta=0.5
@@ -387,15 +395,48 @@ class Experiment(IExperiment):
             },
         )
 
+    def thr_gen(self, depth, summ, constr_threshold):
+        if depth == 1:
+            yield constr_threshold + [summ]
+            return
+        for thr in np.arange(0.0, summ + 0.0001, 0.001):
+            rest_sum = summ - thr
+            if rest_sum >= 0.0:
+                new_constr_threshold = constr_threshold + [thr]
+                yield from self.thr_gen(depth - 1, rest_sum, new_constr_threshold)
+
     def on_experiment_end(self, exp: "IExperiment") -> None:
         super().on_experiment_end(exp)
 
-        print("Run test dataset")
+        print("Run threshold tuning")
         # load best weights
         logpath = f"{self.config['runpath']}/_model.best.pth"
         checkpoint = torch.load(logpath, map_location=lambda storage, loc: storage)
         self._model.load_state_dict(checkpoint)
         self._model = self._model.to(self.device)
+
+        self.dataset_key = "valid"
+        self.dataset = self.datasets["valid"]
+
+        val_y_test, val_y_score = self.run_dataset(thr_tune=True)
+
+        best_acc = 0.0
+        self.best_threshold = [np.array(([0] * self.n_classes))]
+        for thr in self.thr_gen(self.n_classes, 1.0, []):
+            thr = np.array(thr)
+            new_y_score = val_y_score - thr
+
+            new_y_pred = np.argmax(new_y_score, axis=-1).astype(np.int32)
+            acc = accuracy_score(val_y_test, new_y_pred)
+            if acc > best_acc:
+                best_acc = acc
+                self.best_threshold = [thr]
+            elif acc == best_acc:
+                self.best_threshold += [thr]
+
+        self.best_threshold = np.mean(np.stack(self.best_threshold), axis=0)
+
+        print("Run test dataset")
 
         self.dataset_key = "test"
         self.dataset = DataLoader(
@@ -509,6 +550,8 @@ if __name__ == "__main__":
             "new_attention_mlp",
             "meta_mlp",
             "pe_mlp",
+            "pe_att_mlp",
+            "mlp_tf",
             "lstm",
             "noah_lstm",
             "transformer",

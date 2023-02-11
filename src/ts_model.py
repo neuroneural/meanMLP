@@ -67,6 +67,7 @@ def get_config(exp: Experiment):
             "new_attention_mlp",
             "meta_mlp",
             "pe_mlp",
+            "pe_att_mlp",
         ]:
             model_config["hidden_size"] = randint.rvs(32, 256)
             model_config["num_layers"] = randint.rvs(0, 4)
@@ -79,7 +80,7 @@ def get_config(exp: Experiment):
 
             if exp.model == "attention_mlp":
                 model_config["time_length"] = exp.data_shape[1]
-            elif exp.model == "new_attention_mlp":
+            elif exp.model in ["new_attention_mlp", "pe_att_mlp"]:
                 model_config["time_length"] = exp.data_shape[1]
                 model_config["attention_size"] = randint.rvs(32, 256)
 
@@ -137,6 +138,19 @@ def get_config(exp: Experiment):
             model_config["datashape"]["window_shift"] = randint.rvs(
                 2, model_config["datashape"]["window_size"]
             )
+        elif exp.model == "mlp_tf":
+            model_config["input_size"] = exp.data_shape[2]
+            model_config["output_size"] = exp.n_classes
+
+            model_config["hidden_size"] = randint.rvs(32, 256)
+            model_config["num_layers"] = randint.rvs(0, 4)
+            model_config["dropout"] = uniform.rvs(0.1, 0.9)
+
+            model_config["decoder"] = {}
+            model_config["decoder"]["type"] = "tf"
+            model_config["decoder"]["head_hidden_size"] = randint.rvs(4, 128)
+            model_config["decoder"]["num_heads"] = randint.rvs(1, 4)
+            model_config["decoder"]["num_layers"] = randint.rvs(1, 4)
 
         else:
             raise NotImplementedError()
@@ -159,6 +173,10 @@ def get_model(model, model_config):
         return WindowMLP(model_config)
     elif model == "pe_mlp":
         return PE_MLP(model_config)
+    elif model == "pe_att_mlp":
+        return PE_Att_MLP(model_config)
+    elif model == "mlp_tf":
+        return MLP_TF(model_config)
 
     elif model == "lstm":
         return LSTM(model_config)
@@ -193,11 +211,16 @@ def get_optimizer(exp: Experiment, model_config):
     return model_config["lr"], optimizer
 
 
-def positional_encoding(x, n=10000):
+def positional_encoding(x, n=10000, scaled: bool = True):
     bs, ln, fs = x.shape
     # bs: batch size
     # ln: length in time
     # fs: number of channels
+
+    if scaled:
+        C = np.sqrt(fs)
+    else:
+        C = 1.0
 
     P = np.zeros((bs, ln, fs))
     for k in range(ln):
@@ -210,7 +233,7 @@ def positional_encoding(x, n=10000):
             denominator = np.power(n, 2 * i / fs)
             P[:, k, 2 * i] = np.ones((bs)) * np.sin(k / denominator)
 
-    return x + torch.tensor(P, dtype=torch.float32)
+    return C * x + torch.tensor(P, dtype=torch.float32)
 
 
 class ResidualBlock(nn.Module):
@@ -316,6 +339,161 @@ class PE_MLP(nn.Module):
         fc_output = self.fc(x.view(-1, fs))
         fc_output = fc_output.view(bs, ln, -1)
         logits = fc_output.mean(1)
+        return logits
+
+
+class PE_Att_MLP(nn.Module):
+    def __init__(self, model_config):
+        super(PE_Att_MLP, self).__init__()
+
+        input_size = int(model_config["input_size"])
+        time_length = int(model_config["time_length"])
+        output_size = int(model_config["output_size"])
+        dropout = float(model_config["dropout"])
+        hidden_size = int(model_config["hidden_size"])
+        attention_size = int(model_config["attention_size"])
+        num_layers = int(model_config["num_layers"])
+
+        layers = [
+            nn.LayerNorm(input_size),
+            nn.Dropout(p=dropout),
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+        ]
+        for _ in range(num_layers):
+            layers.append(
+                ResidualBlock(
+                    nn.Sequential(
+                        nn.LayerNorm(hidden_size),
+                        nn.Dropout(p=dropout),
+                        nn.Linear(hidden_size, hidden_size),
+                        nn.ReLU(),
+                    )
+                )
+            )
+        layers.append(
+            nn.Sequential(
+                nn.LayerNorm(hidden_size),
+                nn.Dropout(p=dropout),
+                nn.Linear(hidden_size, output_size),
+            )
+        )
+
+        self.fc = nn.Sequential(*layers)
+
+        self.attn = nn.Sequential(
+            nn.LayerNorm(time_length + 1),
+            nn.Dropout(p=dropout),
+            nn.Linear(time_length + 1, attention_size),
+            nn.ReLU(),
+            nn.LayerNorm(attention_size),
+            nn.Dropout(p=dropout),
+            nn.Linear(attention_size, time_length),
+        )
+
+    def get_attention(self, outputs):
+        # calculate mean over time
+        outputs_mean = outputs.mean(1).unsqueeze(1)
+
+        # add output's mean to the end of each output time dimension
+        # as a reference for attention layer
+        # and pass it to attention layer
+        weights_list = []
+        for output, output_mean in zip(outputs, outputs_mean):
+            result = torch.cat((output, output_mean)).swapaxes(0, 1)
+            result_tensor = self.attn(result)
+            weights_list.append(result_tensor)
+
+        weights = torch.stack(weights_list)
+        # normalize weights and swap axes to the output shape
+        normalized_weights = F.softmax(weights, dim=2).swapaxes(1, 2)
+        return normalized_weights
+
+    def forward(self, x):
+        bs, ln, fs = x.shape
+        # bs:  batch size
+        # ln:  length in time, 295
+        # fs: number of channels, 53
+        x = positional_encoding(x)
+        fc_output = self.fc(x.view(-1, fs))
+        fc_output = fc_output.view(bs, ln, -1)
+
+        # get weights form attention layer
+        normalized_weights = self.get_attention(fc_output)
+
+        # sum outputs weight-wise
+        logits = torch.einsum("ijk,ijk->ik", fc_output, normalized_weights)
+
+        return logits
+
+
+class MLP_TF(nn.Module):
+    def __init__(self, model_config):
+        super(MLP_TF, self).__init__()
+
+        input_size = int(model_config["input_size"])
+        output_size = int(model_config["output_size"])
+        dropout = float(model_config["dropout"])
+        hidden_size = int(model_config["hidden_size"])
+        num_layers = int(model_config["num_layers"])
+
+        dec_head_hidden_size = model_config["decoder"]["head_hidden_size"]
+        dec_num_heads = model_config["decoder"]["num_heads"]
+        dec_num_layers = model_config["decoder"]["num_layers"]
+
+        layers = [
+            nn.LayerNorm(input_size),
+            nn.Dropout(p=dropout),
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+        ]
+        for _ in range(num_layers):
+            layers.append(
+                ResidualBlock(
+                    nn.Sequential(
+                        nn.LayerNorm(hidden_size),
+                        nn.Dropout(p=dropout),
+                        nn.Linear(hidden_size, hidden_size),
+                        nn.ReLU(),
+                    )
+                )
+            )
+
+        self.fc = nn.Sequential(*layers)
+
+        dec_hidden_size = dec_head_hidden_size * dec_num_heads
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=dec_hidden_size, nhead=dec_num_heads, batch_first=True
+        )
+        transformer_encoder = nn.TransformerEncoder(
+            encoder_layer, num_layers=dec_num_layers
+        )
+        dec_layers = [
+            nn.Linear(hidden_size, dec_hidden_size),
+            nn.ReLU(),
+            transformer_encoder,
+        ]
+        self.decoder = nn.Sequential(*dec_layers)
+        self.fc_out = nn.Sequential(
+            nn.Dropout(p=dropout), nn.Linear(dec_hidden_size, output_size)
+        )
+
+    def forward(self, x):
+        bs, ln, fs = x.shape
+        # bs:  batch size
+        # ln:  length in time, 295
+        # fs: number of channels, 53
+
+        x = positional_encoding(x)
+
+        fc_output = self.fc(x.view(-1, fs))
+        fc_output = fc_output.view(bs, ln, -1)
+
+        tf_output = self.decoder(fc_output)
+        tf_output = tf_output[:, 0, :]
+        logits = self.fc_out(tf_output)
+
         return logits
 
 
@@ -437,7 +615,7 @@ class WindowMLP(nn.Module):
                 d_model=dec_hidden_size, nhead=dec_num_heads, batch_first=True
             )
             transformer_encoder = nn.TransformerEncoder(
-                encoder_layer, num_layers=num_layers
+                encoder_layer, num_layers=dec_num_layers
             )
             dec_layers = [
                 nn.Linear(hidden_size, dec_hidden_size),
@@ -487,7 +665,7 @@ class WindowMLP(nn.Module):
 
             elif self.decoder_type == "tf":
                 tf_output = self.decoder(fc_output)
-                tf_output = tf_output[:, -1, :]
+                tf_output = tf_output[:, 0, :]
                 logits = self.fc_out(tf_output)
 
             return logits
@@ -850,13 +1028,13 @@ class PE_Transformer(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=hidden_size, nhead=num_heads, batch_first=True
         )
-        transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
-        layers = [
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+
+        self.input_embed = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.ReLU(),
-            transformer_encoder,
-        ]
-        self.transformer = nn.Sequential(*layers)
+        )
+
         self.fc = nn.Sequential(
             nn.Dropout(p=fc_dropout), nn.Linear(hidden_size, output_size)
         )
@@ -864,7 +1042,10 @@ class PE_Transformer(nn.Module):
     def forward(self, x):
         # x.shape = [Batch_size; time_len; n_channels]
         x = positional_encoding(x)
-        fc_output = self.transformer(x)
-        fc_output = fc_output[:, 0, :]
-        fc_output = self.fc(fc_output)
+        input_embed = self.input_embed(x)
+
+        tf_output = self.transformer(input_embed)
+        tf_output = tf_output[:, 0, :]
+
+        fc_output = self.fc(tf_output)
         return fc_output

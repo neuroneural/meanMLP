@@ -513,8 +513,9 @@ def load_BSNIP(
 
 
 def load_ADNI(
+    only_first_sessions: bool = True,
     multiclass: bool = False,
-    dataset_path: str = DATA_ROOT.joinpath("adni/ADNI_data.npz"),
+    dataset_path: str = DATA_ROOT.joinpath("adni/ADNI_data_194.npz"),
     indices_path: str = DATA_ROOT.joinpath("adni/correct_indices_GSP.csv"),
     filter_indices: bool = True,
 ):
@@ -522,7 +523,7 @@ def load_ADNI(
     Return ADNI data
 
     Input:
-    dataset_path: str = DATA_ROOT.joinpath("adni/ADNI_data.npz")
+    dataset_path: str = DATA_ROOT.joinpath("adni/ADNI_data_XXX.npz")
     - path to the dataset with lablels
     indices_path: str = DATA_ROOT.joinpath("adni/correct_indices_GSP.csv")
     - path to correct indices/components
@@ -538,12 +539,18 @@ def load_ADNI(
     with np.load(dataset_path) as npzfile:
         features = npzfile["features"]
         labels = npzfile["diagnoses"]
+        first_sessions = npzfile["early_indices"]
+
+    if only_first_sessions:
+        print(first_sessions)
+        features = features[first_sessions, :, :]
+        labels = labels[first_sessions]
 
     if filter_indices:
         # get correct indices/components
         indices = pd.read_csv(indices_path, header=None)
         idx = indices[0].values - 1
-        features = features[:, idx, :156]
+        features = features[:, idx, :]
 
     filter_array = []
     if multiclass:
