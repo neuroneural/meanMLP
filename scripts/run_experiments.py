@@ -1,6 +1,7 @@
 # pylint: disable=too-many-statements, too-many-locals, invalid-name, unbalanced-tuple-unpacking, no-value-for-parameter
 """Script for running experiments: tuning and testing hypertuned models"""
 import os
+from copy import deepcopy
 
 from omegaconf import OmegaConf, DictConfig
 import hydra
@@ -53,7 +54,7 @@ def start(cfg: DictConfig):
             # tune each original_data CV fold independently
             for k in range(0, cfg.mode.n_splits):
                 print(f"Outer k: {k:02d}")
-                tune_fold_data = original_data
+                tune_fold_data = deepcopy(original_data)
                 tune_fold_data["main"], _ = cross_validation_split(
                     tune_fold_data["main"], cfg.mode.n_splits, k
                 )
