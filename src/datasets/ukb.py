@@ -8,16 +8,16 @@ from omegaconf import DictConfig
 
 def load_data(
     cfg: DictConfig,
-    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_sex_data.npz",
-    indices_path: str = "/data/users2/ppopov1/datasets/ukb/correct_indices_GSP.csv",
+    dataset_path: str = "/anonpath/datasets/ukb/UKB_sex_data.npz",
+    indices_path: str = "/anonpath/datasets/ukb/correct_indices_GSP.csv",
 ):
     """
     Return UKB data
 
     Input:
-    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_sex_data.npz"
+    dataset_path: str = "/anonpath/datasets/ukb/UKB_sex_data.npz"
     - path to the dataset with lablels
-    indices_path: str = "/data/users2/ppopov1/datasets/ukb/correct_indices_GSP.csv"
+    indices_path: str = "/anonpath/datasets/ukb/correct_indices_GSP.csv"
     - path to correct indices/components
 
     Output:

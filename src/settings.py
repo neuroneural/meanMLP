@@ -12,7 +12,7 @@ LOGS_ROOT = ASSETS_ROOT.joinpath("logs")
 UTCNOW = datetime.utcnow().strftime("%y%m%d.%H%M%S")
 
 node = platform.node()
-if "arctrd" in node:
-    DATA_ROOT = path.Path("/data/users2/ppopov1/datasets")
+if "anon" in node:
+    DATA_ROOT = path.Path("/anonpath/datasets")
 else:
     DATA_ROOT = ASSETS_ROOT.joinpath("data")

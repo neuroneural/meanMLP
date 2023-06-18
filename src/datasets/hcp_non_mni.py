@@ -10,13 +10,13 @@ from src.settings import DATA_ROOT
 
 def load_data(
     cfg: DictConfig,
-    dataset_path: str = "/data/users2/ppopov1/datasets/hcp_non_mni/data.npz",
+    dataset_path: str = "/anonpath/datasets/hcp_non_mni/data.npz",
 ):
     """
     Return non MNI HCP data
 
     Input:
-    dataset_path: str = "/data/users2/ppopov1/datasets/hcp_non_mni/data.npz"
+    dataset_path: str = "/anonpath/datasets/hcp_non_mni/data.npz"
     - path to the dataset
 
     Output:
