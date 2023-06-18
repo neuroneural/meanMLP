@@ -16,7 +16,7 @@ PYTHONPATH=. python scripts/run_experiments.py mode=tune dataset=fbirn model=mlp
 PYTHONPATH=. python scripts/run_experiments.py mode=exp dataset=fbirn model=mlp prefix=test wandb_offline=True
 ```
 
-# 'scripts/run_experiments.py' options:
+# `scripts/run_experiments.py` options:
 ## Required:
 - `mode`: 
     - `tune` - tune mode: run multiple experiments with different hyperparams
