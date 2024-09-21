@@ -16,7 +16,7 @@ tunable: True # optional (default: True), True, False;
 # if you set it to False, the tuning runs will abort authomatically.
 # see 'src.model.get_tune_config' and 'src.models.mlp.random_HPs' for reference.
 
-default_HP: False # optional (default: False), True, False; 
+default_HP: True # optional (default: False), True, False; 
 # if you want to forcefully use a single set of HPs in 'exp' mode, set to True. 
 # 'True' requires default_HPs(cfg) defined in the model's module.
 # must be True if model is untunable.
