@@ -10,3 +10,5 @@ ipykernel
 hydra-core
 seaborn
 statannot
+einops
+timm
