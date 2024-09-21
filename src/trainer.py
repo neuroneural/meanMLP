@@ -256,6 +256,8 @@ class BasicTrainer:
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+        if isinstance(self.scheduler, torch.optim.lr_scheduler.OneCycleLR):
+            self.scheduler.step()
 
     def train(self):
         """Start training"""
@@ -271,7 +273,8 @@ class BasicTrainer:
             train_results.append(results)
 
             # update scheduler
-            self.scheduler.step(results["valid_average_loss"])
+            if not isinstance(self.scheduler, torch.optim.lr_scheduler.OneCycleLR):
+                self.scheduler.step(results["valid_average_loss"])
 
             # check early stopping criterion
             self.early_stopping(results["valid_average_loss"], self.model, epoch)
