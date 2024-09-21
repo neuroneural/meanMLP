@@ -6,6 +6,7 @@ import os
 import time
 import warnings
 from pprint import pprint
+import math
 
 import torch
 from torch.utils.data import DataLoader
@@ -170,16 +171,24 @@ class BasicTrainer:
                 torch.cuda.empty_cache()
 
                 # reduce batch_size
-                with open_dict(self.cfg):
-                    self.cfg.mode.batch_size //= 2
-                for key in self.dataloaders:
-                    dataset = self.dataloaders[key].dataset
+                batch_size = self.cfg.mode.batch_size // 2
+                dataloader_info = {}
+                for key, dl in self.dataloaders.items():
+                    dataset = dl.dataset
                     self.dataloaders[key] = DataLoader(
                         dataset,
-                        batch_size=self.cfg.mode.batch_size,
+                        batch_size=batch_size,
                         num_workers=0,
                         shuffle=key == "train",
                     )
+                    dataloader_info[key] = {
+                        "n_samples": len(dl.dataset),
+                        "batch_size": dl.batch_size,
+                        "n_batches": math.ceil(len(dl.dataset)/dl.batch_size)
+                    }
+                with open_dict(self.cfg):
+                    self.cfg.mode.batch_size = batch_size
+                    self.cfg.dataloader = dataloader_info
 
                 # try to run the epoch again
                 continue
@@ -218,9 +227,7 @@ class BasicTrainer:
                 total_loss += loss.sum().item()
 
                 if is_train_dataset:
-                    self.optimizer.zero_grad()
-                    loss.backward()
-                    self.optimizer.step()
+                    self.do_update(loss)
 
         average_time = (time.time() - start_time) / total_size
         average_loss = total_loss / total_size
@@ -241,6 +248,14 @@ class BasicTrainer:
         }
 
         return metrics
+
+    def do_update(self, loss):
+        # used to update weights once the loss is computed. It is moved here for easier inheritance,
+        # as some models need to make scheduler step after each minibatch
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
 
     def train(self):
         """Start training"""
