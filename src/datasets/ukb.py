@@ -8,38 +8,36 @@ from omegaconf import DictConfig
 
 def load_data(
     cfg: DictConfig,
-    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_sex_data.npz",
+    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_",
     indices_path: str = "/data/users2/ppopov1/datasets/ukb/correct_indices_GSP.csv",
-    tune_indices_path: str = "/data/users2/ppopov1/datasets/ukb/tune_indices.csv",
-    exp_indices_path: str = "/data/users2/ppopov1/datasets/ukb/exp_indices.csv",
 ):
     """
     Return UKB data
 
     Input:
-    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_sex_data.npz"
-    - path to the dataset with lablels
-    indices_path: str = "/data/users2/ppopov1/datasets/ukb/correct_indices_GSP.csv"
+    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_"
+    - path to the dataset (incomplete)
+    indices_path: str = "/data/users2/ppopov1/datasets/correct_indices_GSP.csv"
     - path to correct indices/components
 
     Output:
     features, labels
     """
 
-    data = None
-    labels = None
-    with np.load(dataset_path) as npzfile:
-        data = npzfile["features"]
-        labels = npzfile["labels"]
-
     if "tuning_holdout" in cfg.dataset and cfg.dataset.tuning_holdout:
         if cfg.mode.name == "tune":
-            indices = pd.read_csv(tune_indices_path, header=None).to_numpy()
+            with np.load(dataset_path+"tune.npz") as npzfile:
+                data = npzfile["data"]
+                labels = npzfile["sex"]
         else:
-            indices = pd.read_csv(exp_indices_path, header=None).to_numpy()
+            with np.load(dataset_path+"exp.npz") as npzfile:
+                data = npzfile["data"]
+                labels = npzfile["sex"]
+    else:
+        with np.load(dataset_path+"all.npz") as npzfile:
+            data = npzfile["data"]
+            labels = npzfile["sex"]
 
-        data = data[indices]
-        labels = labels[indices]
 
     if cfg.dataset.filter_indices:
         # get correct indices/components

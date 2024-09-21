@@ -10,10 +10,8 @@ from src.datasets.ukb import load_data as load_sex_data
 
 def load_data(
     cfg: DictConfig,
-    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_age_data.npz",
+    dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_",
     indices_path: str = "/data/users2/ppopov1/datasets/ukb/correct_indices_GSP.csv",
-    tune_indices_path: str = "/data/users2/ppopov1/datasets/ukb/tune_indices.csv",
-    exp_indices_path: str = "/data/users2/ppopov1/datasets/ukb/exp_indices.csv",
 ):
     """
     Return UKB data
@@ -28,23 +26,22 @@ def load_data(
     features, labels
     """
 
-    data, sexes = load_sex_data(
-        cfg, 
-        indices_path=indices_path, 
-        tune_indices_path=tune_indices_path, 
-        exp_indices_path=exp_indices_path
-    )
-
-    with np.load(dataset_path) as npzfile:
-        ages = npzfile["labels"]
-
     if "tuning_holdout" in cfg.dataset and cfg.dataset.tuning_holdout:
         if cfg.mode.name == "tune":
-            indices = pd.read_csv(tune_indices_path, header=None).to_numpy()
+            with np.load(dataset_path+"tune.npz") as npzfile:
+                data = npzfile["data"]
+                sexes = npzfile["sex"]
+                ages = npzfile["age"]
         else:
-            indices = pd.read_csv(exp_indices_path, header=None).to_numpy()
-
-        ages = ages[indices]
+            with np.load(dataset_path+"exp.npz") as npzfile:
+                data = npzfile["data"]
+                sexes = npzfile["sex"]
+                ages = npzfile["age"]
+    else:
+        with np.load(dataset_path+"all.npz") as npzfile:
+            data = npzfile["data"]
+            sexes = npzfile["sex"]
+            ages = npzfile["age"]
 
     bins = np.histogram_bin_edges(ages)
     ages = np.digitize(ages, bins)
@@ -54,4 +51,12 @@ def load_data(
 
     labels = ages + sexes * np.unique(ages).shape[0]
 
+    if cfg.dataset.filter_indices:
+        # get correct indices/components
+        indices = pd.read_csv(indices_path, header=None)
+        idx = indices[0].values - 1
+        data = data[:, idx, :]
+
+    data = np.swapaxes(data, 1, 2)
+    
     return data, labels
