@@ -8,7 +8,9 @@ from numpy.random import default_rng
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 import torch
 from torch.utils.data import DataLoader, TensorDataset
+from omegaconf import open_dict
 
+import math
 
 def dataloader_factory(cfg, data, k, trial=None):
     """Return dataloader according to the used model"""
@@ -87,7 +89,7 @@ def common_dataloader(cfg, original_data, k, trial=None):
             split_data["train"][key][val_index],
         )
 
-    # shuffle training data time-wise
+    # shuffle training data along time axis
     if "permute" in cfg and cfg.permute == "Single":
         rng = default_rng(seed=42)
         for i in range(split_data["train"]["TS"].shape[0]):
@@ -128,6 +130,16 @@ def common_dataloader(cfg, original_data, k, trial=None):
             shuffle=key == "train",
         )
 
+    # write info on dataloaders to the config
+    dataloader_info = {}
+    for key, dataloader in dataloaders:
+        dataloader_info[key] = {
+            "n_samples": len(dataloader.dataset),
+            "batch_size": dataloader.batch_size,
+            "n_batches": math.ceil(len(dataloader.dataset)/dataloader.batch_size)
+        }
+    with open_dict(cfg):
+        cfg.dataloader = dataloader_info
     return dataloaders
 
 
