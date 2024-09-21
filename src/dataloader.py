@@ -132,11 +132,11 @@ def common_dataloader(cfg, original_data, k, trial=None):
 
     # write info on dataloaders to the config
     dataloader_info = {}
-    for key, dataloader in dataloaders:
+    for key, dl in dataloaders.items():
         dataloader_info[key] = {
-            "n_samples": len(dataloader.dataset),
-            "batch_size": dataloader.batch_size,
-            "n_batches": math.ceil(len(dataloader.dataset)/dataloader.batch_size)
+            "n_samples": len(dl.dataset),
+            "batch_size": dl.batch_size,
+            "n_batches": math.ceil(len(dl.dataset)/dl.batch_size)
         }
     with open_dict(cfg):
         cfg.dataloader = dataloader_info
