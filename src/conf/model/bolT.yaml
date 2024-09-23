@@ -1,0 +1,15 @@
+name: bolT
+
+data_type: TS # optional (default: TS), TS, FNC, TS-FNC.
+allow_test_ds: True # optional (default: False), True, False
+
+tunable: False # optional (default: True), True, False; random_HPs() is not defined
+default_HP: True # optional (default: False), True, False; default_HPs() is defined
+
+
+# require_data_postproc: False # optional (default: False), True, False; 
+# custom_dataloader: False # optional (default: False), True, False; 
+custom_criterion: True # optional (default: False), True, False; 
+# custom_optimizer: False # optional (default: False), True, False; 
+custom_scheduler: True # optional (default: False), True, False; 
+custom_trainer: True # optional (default: False), True, False; 
