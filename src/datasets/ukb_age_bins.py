@@ -5,9 +5,6 @@ import pandas as pd
 
 from omegaconf import DictConfig
 
-from src.datasets.ukb import load_data as load_sex_data
-
-
 def load_data(
     cfg: DictConfig,
     dataset_path: str = "/data/users2/ppopov1/datasets/ukb/UKB_",
