@@ -15,6 +15,9 @@ from tqdm import tqdm
 from apto.utils.report import get_classification_report
 from omegaconf import OmegaConf, DictConfig
 
+from torch.utils.data import DataLoader
+from omegaconf import open_dict
+import gc
 from src.trainer import BasicTrainer
 
 def get_model(cfg: DictConfig, model_cfg: DictConfig):
@@ -95,6 +98,55 @@ class BolTTrainer(BasicTrainer):
     def __init__(self, cfg, model_cfg, dataloaders, model, criterion, optimizer, scheduler, logger):
         super().__init__(cfg, model_cfg, dataloaders, model, criterion, optimizer, scheduler, logger)
 
+    def run_epoch(self, ds_name):
+        """Run single epoch and monitor OutOfMemoryError"""
+        impatience = 0
+        while True:
+            try:
+                metrics = self.run_epoch_for_real(ds_name)
+            except torch.cuda.OutOfMemoryError as e:
+                if impatience > 5:
+                    raise torch.cuda.OutOfMemoryError(
+                        "Can't fix CUDA out of memory exception"
+                    ) from e
+
+                impatience += 1
+                print("CUDA OOM encountered, reducing batch_size and cleaning memory")
+
+                # run garbage collector and empty cache
+                gc.collect()
+                torch.cuda.empty_cache()
+
+                # reduce batch_size
+                batch_size = self.cfg.mode.batch_size // 2
+                dataloader_info = {}
+                for key, dl in self.dataloaders.items():
+                    dataset = dl.dataset
+                    self.dataloaders[key] = DataLoader(
+                        dataset,
+                        batch_size=batch_size,
+                        num_workers=0,
+                        shuffle=key == "train",
+                    )
+                    dataloader_info[key] = {
+                        "n_samples": len(dl.dataset),
+                        "batch_size": dl.batch_size,
+                        "n_batches": math.ceil(len(dl.dataset)/dl.batch_size)
+                    }
+                with open_dict(self.cfg):
+                    self.cfg.mode.batch_size = batch_size
+                    self.cfg.dataloader = dataloader_info
+
+                self.scheduler = get_scheduler(self.cfg, self.model_cfg, self.optimizer)
+                    
+                # try to run the epoch again
+                continue
+
+            # no errors encountered, exiting loop
+            break
+
+        return metrics
+    
     def run_epoch_for_real(self, ds_name):
         """Run single epoch on `ds_name` dataloder"""
         is_train_dataset = ds_name == "train"
