@@ -4,7 +4,7 @@ name: lstm
 # allow_test_ds: True # optional (default: False), True, False
 
 # tunable: True # optional (default: True), True, False;
-# default_HP: False # optional (default: False), True, False; 
+default_HP: True # optional (default: False), True, False; 
 
 
 # require_data_postproc: False # optional (default: False), True, False; 
