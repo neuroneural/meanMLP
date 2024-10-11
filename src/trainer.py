@@ -184,7 +184,7 @@ class BasicTrainer:
                     dataloader_info[key] = {
                         "n_samples": len(dl.dataset),
                         "batch_size": dl.batch_size,
-                        "n_batches": math.ceil(len(dl.dataset)/dl.batch_size)
+                        "n_batches": math.ceil(len(dl.dataset) / dl.batch_size),
                     }
                 with open_dict(self.cfg):
                     self.cfg.mode.batch_size = batch_size
@@ -250,8 +250,10 @@ class BasicTrainer:
         return metrics
 
     def do_update(self, loss):
-        # used to update weights once the loss is computed. It is moved here for easier inheritance,
-        # as some models need to make scheduler step after each minibatch
+        """
+        Used to update weights once the loss is computed. It is moved here for easier inheritance,
+        as some models need to make scheduler step after each minibatch
+        """
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -263,13 +265,21 @@ class BasicTrainer:
         """Start training"""
         start_time = time.time()
 
+        train_log_savepath = f"{self.save_path}/train_log.csv"
         train_results = []
         for epoch in tqdm(range(self.epochs)):
             # run train and valid dataloaders
             results = self.run_epoch("train")
             results.update(self.run_epoch("valid"))
+            results["epoch"] = epoch
 
             # save results
+            pd.DataFrame([results]).to_csv(
+                train_log_savepath,
+                mode="a",
+                header=not os.path.exists(train_log_savepath),
+                index=False,
+            )
             train_results.append(results)
 
             # update scheduler
