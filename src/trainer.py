@@ -294,12 +294,11 @@ class BasicTrainer:
         if self.early_stopping.early_stop:
             print("EarlyStopping triggered")
 
-        # log train results
+        # log train results with logger
+        # we are doing this after the training to minimize the api calls to wandb,
+        # the only implemented logger so far. These calls used to crash the whole training script
+        # way too often. Training can be monitored online only through the train_log_savepath csv.
         train_results = pd.DataFrame(train_results)
-        train_results["epoch"] = train_results.index
-        epoch = train_results.pop("epoch")
-        train_results.insert(0, "epoch", epoch)
-        train_results.to_csv(f"{self.save_path}/train_log.csv", index=False)
 
         table = wandb.Table(dataframe=train_results)
         self.logger.log(
