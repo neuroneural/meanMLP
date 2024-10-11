@@ -1,7 +1,7 @@
 # pylint: disable=line-too-long
 """ A script for downloading a few fMRI datasets that were uploaded to github. 
     It will download a variant of ABIDE1 dataset (it is smaller than the one we used in our work)\
-    and COBRE dataset, both ready for experiments withing this framework.
+    and COBRE dataset, both ready for experiments within this framework.
     To use them in experiments, set `dataset=abide` or `dataset=cobre` when running `scripts/run_experiments.py`. 
 """
 import requests
