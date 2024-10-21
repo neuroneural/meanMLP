@@ -2,11 +2,13 @@
 Go to `src/models/mlp.py`.
 `MeanMLP` and `default_HPs` is what you need.
 
+You can also check the colab tutorial. <a href="https://colab.research.google.com/drive/1Lyzof8DakkZI4BPBR82xvmow7tAN1i3a?usp=sharing"><img alt="Colab" src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Google_Colaboratory_SVG_Logo.svg/1600px-Google_Colaboratory_SVG_Logo.svg.png?20221103151432" width="50"></a>
+
 # 1. Requirements
 ```bash
 conda create -n mlp_nn python=3.9
 conda activate mlp_nn
-conda install pytorch torchvision torchaudio pytorch-cuda=11.3 -c pytorch -c nvidia
+conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
 pip install -r requirements.txt
 ```
 
@@ -14,13 +16,14 @@ pip install -r requirements.txt
 ## 1. Figures 3 and 4: general and transfer classification comparisons
 ```bash
 DATASETS=('fbirn' 'bsnip' 'cobre' 'abide_869' 'oasis' 'adni' 'hcp' 'ukb' 'ukb_age_bins' 'fbirn_roi' 'abide_roi' 'hcp_roi_752')
-MODELS=('mlp' 'lstm' 'pe_transformer' 'milc' 'dice' 'bnt' 'fbnetgen' 'brainnetcnn' 'lr')
+MODELS=('mlp' 'lstm' 'pe_transformer' 'milc' 'dice' 'bolT' 'glacier' 'bnt' 'fbnetgen' 'brainnetcnn' 'lr')
 for dataset in "${DATASETS[@]}"; do 
     for model in "${MODELS[@]}"; do 
         PYTHONPATH=. python scripts/run_experiments.py mode=exp dataset=$dataset model=$model prefix=general ++model.default_HP=True
     done; 
 done
 ```
+
 ## 2. Figures 5 and 6: reshuffling experiments and additional data pre-processing tests
 ```bash
 DATASETS=('hcp' 'hcp_roi_752' 'hcp_schaefer' 'hcp_non_mni_2' 'hcp_mni_3' 'ukb')
@@ -36,7 +39,7 @@ done
 ```
 ## 3. Plotting the results
 Plotting scripts can be found at `scripts/plot_figures.ipynb`.
-Data loading scripts rely on fetching the results from WandB. If you set WandB offline mode while running the experiments, you'll need to load the csv files from the experiment folders in `assets/logs`.
+Data loading scripts rely on fetching the results from WandB. If you set WandB offline mode while running the experiments, you'll need rewire the script and load the csv files from the experiment folders in `assets/logs`.
 
 
 # `scripts/run_experiments.py` options:
@@ -47,13 +50,15 @@ Data loading scripts rely on fetching the results from WandB. If you set WandB o
 
 - `model`: model for the experiment. Models' config files can be found at `src/conf/model`, and their sourse code is located at `src/models`
     - `mlp` - our hero, TS model
-    - `lstm` - classic LSTM model for classification, TS model (not used in the paper)
+    - `lstm` - classic LSTM model for classification, TS model
     - `mean_lstm` - `lstm` with LSTM output embeddings averaging, TS model
-    - `pe_transformer` - BERT-inspired model, uses transformer endocder, TS model (not used in the paper)
+    - `pe_transformer` - BERT-inspired model, uses transformer endocder, TS model
     - `mean_pe_transformer` - `pe_transformer` with encoder output averaging, TS model
 
     - `dice` - TS model, https://www.sciencedirect.com/science/article/pii/S1053811922008588?via%3Dihub
     - `milc` - TS model, https://arxiv.org/abs/2007.16041 
+    - `bolT` - TS model, https://www.sciencedirect.com/science/article/pii/S1361841523001019
+    - `glacier` - TS model, https://ieeexplore.ieee.org/document/10097126
 
     - `bnt` - FNC model, https://arxiv.org/abs/2210.06681
     - `fbnetgen` - TS+FNC model, https://arxiv.org/abs/2205.12465
@@ -88,7 +93,7 @@ Data loading scripts rely on fetching the results from WandB. If you set WandB o
     - `exp` mode runs with custom prefix will use HPs from `tune` mode runs with the same prefix
         - unless model.default_HP is set to `True`
 - `permute`: whether TS models should be trained on time-reshuffled data
-    - set to `permute=Multiple` to permute
+    - set to `permute=Multiple` to reshuffle on every new epoch
 - `wandb_silent`: whether wandb logger should run silently (default: `True`)
 - `wandb_offline`: whether wandb logger should only log results locally (default: `False`)
 
