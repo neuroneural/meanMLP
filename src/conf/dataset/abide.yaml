@@ -19,5 +19,5 @@ custom_processor: False # optional (default: False), True, False;
 # see 'src.data.data_factory' and 'src.data.common_processor' for reference
 
 zscore: False # whether data should be z-scored over time -- used in the common_processor
-filter_indices: True # whether ICA components should be filtered -- appears in the src.datasets.fbirn.load_data
+filter_indices: True # whether ICA components should be filtered -- appears in the src.datasets.abide.load_data
 # multiclass: False # some datasets can be loaded with additional classes, not just 2
