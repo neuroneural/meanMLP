@@ -1,0 +1,65 @@
+name: smolk # must create '{name}.py' module in src/models with:
+# 1. 'get_model(cfg, model_cfg)' defined. 'model_cfg' normally stores HPs and input shape info
+# 2. 'random_HPs(cfg)' and/or 'default_HPs(cfg)' defined. 'cfg' normally stores dataset shape info
+# see 'src.model.model_factory' and 'src.models.mlp' module for reference
+
+data_type: TS # optional (default: TS), TS, FNC, TS-FNC.
+# used in 'src.data.common_processor'
+
+allow_test_ds: True # optional (default: False), True, False
+# if model can be tested on other datasets without the need of reshaping them
+# (e.g., it is time-length agnostic), set to True
+
+tunable: True # optional (default: True), True, False;
+# if you want to be able to tune the model in 'tune' mode, set to True. 
+# 'True' requires 'random_HPs(cfg)' defined in the model's module.
+# if you set it to False, the tuning runs will abort authomatically.
+# see 'src.model.get_tune_config' and 'src.models.mlp.random_HPs' for reference.
+
+default_HP: True # optional (default: False), True, False; 
+# if you want to forcefully use a single set of HPs in 'exp' mode, set to True. 
+# 'True' requires default_HPs(cfg) defined in the model's module.
+# must be True if model is untunable.
+# see 'src.model.get_best_config' and 'src.models.mlp.default_HPs' for reference.
+
+
+require_data_postproc: False # optional (default: False), True, False; 
+# if you need to reshape the loaded dataset according to model_cfg, set to True. 
+# 'True' requires 'data_postproc(cfg, model_cfg, original_data)' defined in the model's module.
+# see 'src.data.data_postfactory' for reference
+
+custom_dataloader: False # optional (default: False), True, False; 
+# if you want custom dataloader, set to True. 
+# 'True' requires get_dataloader(cfg, data, k, trial=None) defined in the model's module
+# see 'src.dataloader.dataloader_factory' and 'src.dataloader.common_dataloader' for reference
+
+
+custom_criterion: False # optional (default: False), True, False; 
+# if you want custom criterion, set to True. 
+# 'True' requires 'get_criterion(cfg, model_cfg)' defined in the model's module
+# see 'src.model_utils.criterion_factory' and 'src.model_utils.CEloss' for reference
+
+custom_optimizer: False # optional (default: False), True, False; 
+# if you want custom optimizer, set to True. 
+# 'True' requires 'get_optimizer(cfg, model_cfg, model)' defined in the model's module
+# see 'src.model_utils.optimizer_factory' for reference
+
+custom_scheduler: False # optional (default: False), True, False; 
+# if you want custom scheduler, set to True. 
+# 'True' requires 'get_scheduler(cfg, model_cfg, optimizer)' defined in the model's module
+# see 'src.model_utils.scheduler_factory' and 'src.model_utils.DummyScheduler' for reference
+
+
+custom_trainer: False # optional (default: False), True, False; 
+# if you want custom trainer, set to True. 
+# 'True' requires get_trainer(cfg,
+#                             model_cfg,
+#                             dataloaders,
+#                             model,
+#                             criterion,
+#                             optimizer,
+#                             scheduler,
+#                             logger,
+#                             ) 
+# defined in the model's module
+# see 'src.trainer.trainer_factory' and 'src.trainer.BasicTrainer' for reference
