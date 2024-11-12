@@ -9,7 +9,7 @@ from omegaconf import OmegaConf, DictConfig
 
 
 def get_model(cfg: DictConfig, model_cfg: DictConfig):
-    return MeanMLP(model_cfg)
+    return meanMLP(model_cfg)
 
 
 def default_HPs(cfg: DictConfig):
@@ -51,9 +51,9 @@ class ResidualBlock(nn.Module):
         return self.block(x) + x
 
 
-class MeanMLP(nn.Module):
+class meanMLP(nn.Module):
     """
-    Mean MLP model for fMRI data.
+    meanMLP model for fMRI data.
     Expected input shape: [batch_size, time_length, input_feature_size].
     Output: [batch_size, n_classes]
 
