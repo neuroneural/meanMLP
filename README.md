@@ -41,15 +41,14 @@ for model in "${MODELS[@]}"; do
 done
 ```
 ## 3. Plotting the results
-Plotting scripts can be found at `scripts/plot_figures.ipynb`. It a rather haphazard collection of scripts, we may update it later.
-Data loading scripts rely on fetching the results from WandB. If you set WandB offline mode while running the experiments, you'll need rewire the script and load the csv files from the experiment folders in `assets/logs`.
+Plotting scripts can be found at `scripts/plot_figures.ipynb`.
 
 
 # `scripts/run_experiments.py` options:
 ## Required:
 - `mode`: 
     - `tune` - tune mode: run multiple experiments with different hyperparams
-    - `exp` - experiment mode: run experiments with the best hyperparams found in the `tune` mode, or with default hyperparams `default_HPs` is set to `True`
+    - `exp` - experiment mode: run experiments with the best hyperparams found in the `tune` mode, or with default hyperparams if `default_HPs` is set to `True`
 
 - `model`: model for the experiment. Models' config files can be found at `src/conf/model`, and their sourse code is located at `src/models`
 
