@@ -5,7 +5,7 @@ This repo contains the meanMLP model implementation and the experimental setup f
 Go to `src/models/mlp.py`.
 `meanMLP` and `default_HPs` is what you need.
 
-You can also check the colab tutorial, it shows how to use the experiment framework and the model in minimalistic examples. <a href="https://colab.research.google.com/drive/1Lyzof8DakkZI4BPBR82xvmow7tAN1i3a?usp=sharing"><img alt="Colab" src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Google_Colaboratory_SVG_Logo.svg/1600px-Google_Colaboratory_SVG_Logo.svg.png?20221103151432" width="50"></a>
+Alternatively you can check the [colab tutorial](https://colab.research.google.com/drive/1Lyzof8DakkZI4BPBR82xvmow7tAN1i3a?usp=sharing#scrollTo=zmr1JGN2sMlI), it reimplements the model from scratch and shows how to use it in a minimalistic example. It can also give you a better idea of how to use the whole experimental framework in this repo. <a href="https://colab.research.google.com/drive/1Lyzof8DakkZI4BPBR82xvmow7tAN1i3a?usp=sharing"><img alt="Colab" src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Google_Colaboratory_SVG_Logo.svg/1600px-Google_Colaboratory_SVG_Logo.svg.png?20221103151432" width="50"></a>
 
 # 1. Requirements
 ```bash
