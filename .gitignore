@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+/.tox/
+/.venv/
+/dist/
+/build/
+*.egg-info/
+
+assets/
+src/ml4fmri/models/old
