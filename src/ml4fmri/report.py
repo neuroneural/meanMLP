@@ -197,7 +197,7 @@ class Report(object):
         fig, ax = plt.subplots(figsize=(7.5, 4.5))
         ax.boxplot(data, labels=order, showmeans=True)
         ax.set_ylabel(metric)
-        ax.set_title(f"Test AUC across models in {self.meta["n_folds"]}-fold CV")
+        ax.set_title(f"Test AUC across models in {self.meta['n_folds']}-fold CV")
         ax.grid(True, axis="y", linestyle=":", linewidth=0.5)
         fig.tight_layout()
 
