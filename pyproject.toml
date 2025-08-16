@@ -18,6 +18,12 @@ dependencies = [
   "pandas>=1.5",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "ipykernel",
+]
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

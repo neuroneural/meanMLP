@@ -8,11 +8,10 @@ from torch import nn
 
 from .helper_functions import basic_ce_loss, basic_handle_batch, basic_dataloader, basic_Adam_optimizer, BasicTrainer
 
-class meanLSTM(nn.Module):
+class LSTM(nn.Module):
     """
     TIME SERIES MODEL
-    LSTM model with temporal averaging for fMRI data from https://doi.org/10.1016/j.neuroimage.2024.120909. 
-    Similar in approach to the earlier LSTM model for fMRI from https://doi.org/10.1007/978-3-319-67389-9_42.
+    Vanilla-style LSTM classifier for fMRI data from https://doi.org/10.1016/j.neuroimage.2024.120909.
     Expected input shape: [batch_size, time_length, input_feature_size].
     Output: [batch_size, n_classes]
     """
@@ -28,7 +27,7 @@ class meanLSTM(nn.Module):
             lr: float = 4e-5,
     ):
         """
-        Initialize meanLSTM model.
+        Initialize LSTM model.
         Args:
             input_size (int): Size of the vector at each time step in the input time series. \
                 Common to all models, for FNC models it is the number of nodes (width or length) in the FNC matrix.
@@ -43,6 +42,9 @@ class meanLSTM(nn.Module):
         """
         super().__init__()
         self.lr = lr  # learning rate used in the paper. Defined like this in every model for reference.
+
+        self.bidirectional = bidirectional
+        self.hidden_size = hidden_size
 
         self.lstm = nn.LSTM(
             input_size=input_size,
@@ -62,12 +64,17 @@ class meanLSTM(nn.Module):
     def forward(self, x):
         lstm_output, _ = self.lstm(x)
 
-        lstm_output = torch.mean(lstm_output, dim=1)
+        if self.bidirectional:
+            out_forward = lstm_output[:, -1, : self.hidden_size]
+            out_reverse = lstm_output[:, 0, self.hidden_size :]
+            lstm_output = torch.cat((out_forward, out_reverse), 1)
+        else:
+            lstm_output = lstm_output[:, -1, :]
 
         logits = self.fc(lstm_output)
 
         return logits, {"logits": logits}
-
+    
     #### Helper functions for model training and evaluation ####
 
     def compute_loss(self, loss_load, targets):
