@@ -3,6 +3,8 @@
 from .meanMLP import meanMLP
 from .LSTM import LSTM
 from .meanLSTM import meanLSTM
+from .Transformer import Transformer
+from .meanTransformer import meanTransformer
 
-__all__ = ['meanMLP', 'LSTM', 'meanLSTM']
+__all__ = ['meanMLP', 'LSTM', 'meanLSTM', 'Transformer', 'meanTransformer']
 

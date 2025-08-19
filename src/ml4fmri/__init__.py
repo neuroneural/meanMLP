@@ -1,3 +1,3 @@
-from .report import cvbench
+from .cvreport import cvbench
 
 __all__ = ["cvbench"]

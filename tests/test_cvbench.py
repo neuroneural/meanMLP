@@ -1,5 +1,5 @@
 import pandas as pd
-from ml4fmri.report import cvbench
+from ml4fmri.cvreport import cvbench
 
 def test_cvbench_smoke(toy_data):
     X, y = toy_data
