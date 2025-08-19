@@ -10,7 +10,7 @@ from torch.nn.functional import cross_entropy
 import math
 import numpy as np
 from einops import rearrange, repeat
-from timm.layers import trunc_normal_
+from torch.nn.init import trunc_normal_
 
 from .helper_functions import basic_handle_batch, basic_dataloader, basic_Adam_optimizer, BasicTrainer
 
@@ -19,7 +19,8 @@ from types import SimpleNamespace
 class BolT(nn.Module):
     """
     TIME SERIES MODEL
-    BolT model for fMRI data from https://doi.org/10.1016/j.media.2023.102841 (https://github.com/icon-lab/BolT).
+    BolT model for fMRI data from https://doi.org/10.1016/j.media.2023.102841.
+    No analysis features of the original implementation at https://github.com/icon-lab/BolT, just classification.
     Expected input shape: [batch_size, time_length, input_feature_size].
     Output: [batch_size, n_classes], loss_load = {"logits": logits, "cls": cls}.
     """
@@ -162,31 +163,18 @@ class BolT(nn.Module):
 
         return macs, np.sum(macs) * 2 # FLOPS = 2 * MAC
 
-
     def forward(self, x):
-        batchSize, T, _ = x.shape
-
-        nW = (T-self.hyperParams.windowSize) // self.shiftSize  + 1
-        cls = self.clsToken.repeat(batchSize, nW, 1) # (batchSize, #windows, C)
-        
-        # record nW and dynamicLength, need in case you want to paint those tokens later
-        self.last_numberOfWindows = nW
-        
+        B, T, _ = x.shape
+        nW = (T - self.hyperParams.windowSize) // self.shiftSize + 1
+        cls = self.clsToken.expand(B, nW, -1)  # no .repeat allocation of content
 
         for block in self.blocks:
             x, cls = block(x, cls, analysis=False)
-            
-        """
-            x : (batchSize, dynamicLength, featureDim)
-            cls : (batchSize, nW, featureDim)
-        """
 
         cls = self.encoder_postNorm(cls)
-        logits = self.classifierHead(cls.mean(dim=1)) # (batchSize, #ofClasses)
-
-        torch.cuda.empty_cache()
-
+        logits = self.classifierHead(cls.mean(dim=1))
         return logits, {"logits": logits, "cls": cls}
+
 
     #### Helper functions for model training and evaluation ####
 
@@ -303,30 +291,11 @@ class BolT(nn.Module):
 
 
 def windowBoldSignal(boldSignal, windowLength, stride):
-    
-    """
-        boldSignal : (batchSize, N, T)
-        output : (batchSize, (T-windowLength) // stride, N, windowLength )
-    """
-
-    T = boldSignal.shape[2]
-
-    # NOW WINDOWING 
-    windowedBoldSignals = []
-    samplingEndPoints = []
-
-    for windowIndex in range((T - windowLength)//stride + 1):
-        
-        sampledWindow = boldSignal[:, :, windowIndex * stride  : windowIndex * stride + windowLength]
-        samplingEndPoints.append(windowIndex * stride + windowLength)
-
-        sampledWindow = torch.unsqueeze(sampledWindow, dim=1)
-        windowedBoldSignals.append(sampledWindow)
-        
-
-    windowedBoldSignals = torch.cat(windowedBoldSignals, dim=1)
-
-    return windowedBoldSignals, samplingEndPoints
+    x = boldSignal.unfold(dimension=2, size=windowLength, step=stride)  # (B, N, nW, W)
+    x = x.permute(0, 2, 1, 3).contiguous()                              # (B, nW, N, W)
+    B, nW, N, W = x.shape
+    samplingEndPoints = list(range(W, W + nW * stride, stride))
+    return x, samplingEndPoints
 
 class PreNorm(nn.Module):
     def __init__(self, dim, fn):
@@ -500,91 +469,82 @@ class WindowAttention(nn.Module):
 
     def forward(self, x, x_, mask, nW, analysis=False):
         """
-            Input:
-
-            x: base BOLD tokens with shape of (B*num_windows, 1+windowSize, C), the first one is cls token
-            x_: receptive BOLD tokens with shape of (B*num_windows, 1+receptiveSize, C), again the first one is cls token
-            mask: (mask_left, mask_right) with shape (maskCount, 1+windowSize, 1+receptiveSize)
-            nW: number of windows
-            analysis : Boolean, it is set True only when you want to analyze the model, not important otherwise 
-
-            Output:
-
-            transX : attended BOLD tokens from the base of the window, shape = (B*num_windows, 1+windowSize, C), the first one is cls token
-
+        x  : (B*nW, 1+windowSize, C)   # queries
+        x_ : (B*nW, 1+receptiveSize, C)# keys/values
+        mask: (mask_left, mask_right), each (maskCount, 1+windowSize, 1+receptiveSize), bool
+        nW : number of windows
+        returns: (B*nW, 1+windowSize, C)
         """
+        # ----- shapes / unpack -----
+        BnW, n_tok, C = x.shape       # n_tok = 1 + N
+        _,    m_tok, _ = x_.shape     # m_tok = 1 + M
+        N = n_tok - 1                 # windowSize
+        M = m_tok - 1                 # receptiveSize
+        H = self.numHeads
+        d = (self.q.out_features // H)  # per-head dim
+        B = BnW // nW
 
+        # ----- projections & split heads -----
+        q = self.q(x)                       # (B*nW, n_tok, H*d)
+        k, v = self.kv(x_).chunk(2, dim=-1) # (B*nW, m_tok, H*d) each
+        q = rearrange(q, "b n (h d) -> b h n d", h=H)  # (B*nW, H, n_tok, d)
+        k = rearrange(k, "b m (h d) -> b h m d", h=H)  # (B*nW, H, m_tok, d)
+        v = rearrange(v, "b m (h d) -> b h m d", h=H)
 
-        B_, N, C = x.shape
-        _, M, _ = x_.shape
-        N = N-1
-        M = M-1
+        # ----- attention logits -----
+        attn = torch.matmul(q, k.transpose(-1, -2)) * self.scale  # (B*nW, H, n_tok, m_tok)
 
-        B = B_ // nW 
+        # relative position bias only for non-CLS rows/cols
+        # self.relative_position_index: (N, M)
+        # self.relative_position_bias_table: (2*maxDisp+1, H)
+        rel = self.relative_position_bias_table[
+            self.relative_position_index.view(-1)
+        ].view(N, M, H).permute(2, 0, 1).contiguous()  # (H, N, M)
 
-        mask_left, mask_right = mask
+        # Make sure dtypes match
+        rel = rel.to(dtype=attn.dtype, device=attn.device)
+        attn[:, :, 1:, 1:] = attn[:, :, 1:, 1:] + rel.unsqueeze(0)            # (1, H, N, M)
+        attn[:, :, :1, :1] = attn[:, :, :1, :1] + self.cls_bias_self.to(attn.dtype)
+        attn[:, :, :1, 1:] = attn[:, :, :1, 1:] + self.cls_bias_sequence_up.to(attn.dtype)
+        attn[:, :, 1:, :1] = attn[:, :, 1:, :1] + self.cls_bias_sequence_down.to(attn.dtype)
 
-        # linear mapping
-        q = self.q(x) # (batchSize * #windows, 1+N, C)
-        k, v = self.kv(x_).chunk(2, dim=-1) # (batchSize * #windows, 1+M, C)
+        # ----- masking first/last windows (no .repeat, just broadcast) -----
+        mask_left, mask_right = mask  # (maskCount, n_tok, m_tok), bool
+        # reshape to (B, nW, H, n_tok, m_tok) so we can apply per-window masks
+        attn = rearrange(attn, "(b nW) h n m -> b nW h n m", b=B, nW=nW)
 
-        # head seperation
-        q = rearrange(q, "b n (h d) -> b h n d", h=self.numHeads)
-        k = rearrange(k, "b m (h d) -> b h m d", h=self.numHeads)
-        v = rearrange(v, "b m (h d) -> b h m d", h=self.numHeads)
+        maskCount = min(mask_left.shape[0], attn.shape[1])
+        if maskCount > 0:
+            neg_inf = max_neg_value(attn)  # -finfo.max in attn dtype
 
-        attn = torch.matmul(q , k.transpose(-1, -2)) * self.scale # (batchSize*#windows, h, n, m)
+            # First maskCount windows: apply left mask
+            # mask_left slice: (maskCount, n_tok, m_tok) -> (1, maskCount, 1, n_tok, m_tok)
+            attn[:, :maskCount].masked_fill_(mask_left[:maskCount].unsqueeze(0).unsqueeze(2), neg_inf)
 
-        relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
-            N, M, -1)  # N, M, nH
-        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, N, M
-       
+            # Last maskCount windows: apply right mask
+            attn[:, -maskCount:].masked_fill_(mask_right[-maskCount:].unsqueeze(0).unsqueeze(2), neg_inf)
 
-        if(self.attentionBias):
-            attn[:, :, 1:, 1:] = attn[:, :, 1:, 1:] + relative_position_bias.unsqueeze(0)
-            attn[:, :, :1, :1] = attn[:, :, :1, :1] + self.cls_bias_self
-            attn[:, :, :1, 1:] = attn[:, :, :1, 1:] + self.cls_bias_sequence_up
-            attn[:, :, 1:, :1] = attn[:, :, 1:, :1] + self.cls_bias_sequence_down
-        
-        # mask the not matching queries and tokens here
-        maskCount = mask_left.shape[0]
-        # repate masks for batch and heads
-        mask_left = repeat(mask_left, "nM nn mm -> b nM h nn mm", b=B, h=self.numHeads)
-        mask_right = repeat(mask_right, "nM nn mm -> b nM h nn mm", b=B, h=self.numHeads)
-
-        mask_value = max_neg_value(attn) 
-
-
-        attn = rearrange(attn, "(b nW) h n m -> b nW h n m", nW = nW)        
-        
-        # make sure masks do not overflow
-        maskCount = min(maskCount, attn.shape[1])
-        mask_left = mask_left[:, :maskCount]
-        mask_right = mask_right[:, -maskCount:]
-
-        attn[:, :maskCount].masked_fill_(mask_left==1, mask_value)
-        attn[:, -maskCount:].masked_fill_(mask_right==1, mask_value)
+        # back to (B*nW, H, n_tok, m_tok)
         attn = rearrange(attn, "b nW h n m -> (b nW) h n m")
 
-
-        attn = self.softmax(attn) # (b, h, n, m)
-
-        if(analysis):
-            self.save_attention_maps(attn.detach()) # save attention
-            handle = attn.register_hook(self.save_attention_gradients) # save it's gradient
+        # ----- softmax, optional analysis hook, dropout -----
+        attn = self.softmax(attn)
+        if analysis:
+            # Save attention maps (detach) and register gradient hook
+            self.save_attention_maps(attn.detach())
+            handle = attn.register_hook(self.save_attention_gradients)
             self.nW = nW
             self.handle = handle
 
         attn = self.attnDrop(attn)
 
-        x = torch.matmul(attn, v) # of shape (b_, h, n, d)
+        # ----- apply attention to values, merge heads, project -----
+        out = torch.matmul(attn, v)                    # (B*nW, H, n_tok, d)
+        out = rearrange(out, "b h n d -> b n (h d)")   # (B*nW, n_tok, H*d)
+        out = self.proj(out)                           # (B*nW, n_tok, C)
+        out = self.projDrop(out)
+        return out
 
-        x = rearrange(x, 'b h n d -> b n (h d)')
-
-        x = self.proj(x)
-        x = self.projDrop(x)
-        
-        return x
 
 
 
@@ -709,14 +669,13 @@ class BolTransformerBlock(nn.Module):
 
         # create mask here for non matching query and key pairs
         maskCount = self.remainder // shiftSize + 1
-        mask_left = torch.zeros(maskCount, self.windowSize+1, self.receptiveSize+1)
-        mask_right = torch.zeros(maskCount, self.windowSize+1, self.receptiveSize+1)
-
+        mask_left  = torch.zeros(maskCount, self.windowSize+1, self.receptiveSize+1, dtype=torch.bool)
+        mask_right = torch.zeros_like(mask_left)
         for i in range(maskCount):
-            if(self.remainder > 0):
-                mask_left[i, :, 1:1+self.remainder-shiftSize*i] = 1
-                if(-self.remainder+shiftSize*i > 0):
-                    mask_right[maskCount-1-i, :, -self.remainder+shiftSize*i:] = 1
+            if self.remainder > 0:
+                mask_left[i, :, 1:1+self.remainder-self.shiftSize*i] = True
+                if (-self.remainder + self.shiftSize*i) > 0:
+                    mask_right[maskCount-1-i, :, -self.remainder + self.shiftSize*i:] = True
 
         self.register_buffer("mask_left", mask_left)
         self.register_buffer("mask_right", mask_right)
