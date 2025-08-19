@@ -24,11 +24,16 @@ dev = [
   "ipykernel",
 ]
 
+
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"ml4fmri.data" = ["weights/*.pt"]
 
 [project.urls]
 Homepage = "https://github.com/neuroneural/meanMLP/tree/ml4fmri"
