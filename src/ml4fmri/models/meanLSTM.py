@@ -145,7 +145,18 @@ class meanLSTM(nn.Module):
               device: str = None,
               patience: int = 30,
         ):
-
+        """
+        Standard model training routine.
+        Args:
+            train_loader (DataLoader): DataLoader for the training set. Used for training.
+            val_loader (DataLoader): DataLoader for the validation set. Used during training to find most generalizable model.
+            test_loader (DataLoader): DataLoader for the test set.
+            epochs (int, optional): Number of training epochs. Defaults to 200.
+            lr (float, optional): Optimizer learning rate (default: use model's self.lr).
+            device (str, optional): Device to train the model on: "cuda", "mps", or "cpu". Default: auto-detect (cuda -> mps -> cpu).
+            patience (int, optional): Early stopping patience (in epochs). Defaults to 30.
+        """
+        
         trainer = BasicTrainer(
             model=self,
             train_loader=train_loader,

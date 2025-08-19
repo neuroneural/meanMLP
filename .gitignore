@@ -6,6 +6,7 @@ __pycache__/
 /build/
 *.egg-info/
 .pytest_cache
+*.DS_Store*
 
 assets/
 src/ml4fmri/models/old
