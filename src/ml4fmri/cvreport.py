@@ -26,6 +26,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 
+import torch
+
 import warnings
 import logging
 logging.basicConfig(
@@ -113,13 +115,22 @@ def cvbench(
         chosen = models
         missing = [m for m in models if m not in available_model_dict]
         assert not missing, f"Models {missing} not found among available models: {list(available_model_dict.keys())}"
-            
+          
     chosen_model_dict = {m: available_model_dict[m] for m in chosen}
-
+    LOGGER.info(f"Running models: {chosen}")
 
     # Run CV for each chosen model
     skf = StratifiedKFold(n_splits=int(n_folds), shuffle=True, random_state=int(random_state))
 
+    if device is not None:
+        LOGGER.info(f"Using device: {device}")
+    else:
+        device = "cuda" if torch.cuda.is_available() \
+            else "mps" if torch.backends.mps.is_available() \
+                else "cpu"
+
+        LOGGER.info(f"Using device: {device}")
+    
     train_logs = []
     test_logs = []
 
