@@ -1,11 +1,6 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """
 BolT model module (pruned & streamlined)
-
-- Removed interpretability/analysis (“juice flow”) code and hooks.
-- Vectorized windowing with Tensor.unfold for speed.
-- No timm dependency (uses torch.nn.init.trunc_normal_).
-- Boolean masks with broadcasting (no large repeats).
 """
 
 import math
@@ -29,6 +24,7 @@ class BolT(nn.Module):
     """
     TIME SERIES MODEL
     BolT model for fMRI data from https://doi.org/10.1016/j.media.2023.102841.
+    Original: https://github.com/icon-lab/BolT
     This version focuses on classification only (analysis/interpretability code removed).
 
     Expected input shape: [batch_size, time_length, input_feature_size].
@@ -45,7 +41,8 @@ class BolT(nn.Module):
             output_size (int): Number of classes for classification.
         """
         super().__init__()
-        self.lr = 2e-4
+        self.lr = 2e-4 # learning rate used in the paper. Defined like this in every model for reference.
+        self.lambdaCons = 1  # used in loss calculation
 
         hyperParams = {
             # oneCycleLR hyperparameters from the original code (not used here but kept for reference)
@@ -59,14 +56,13 @@ class BolT(nn.Module):
             "headDim": 20,
             "windowSize": 20,
             "shiftCoeff": 2.0 / 5.0,
-            # fringeSize = fringeCoeff * (windowSize) * 2 * (1-shiftCoeff)
             "fringeCoeff": 2,
             "focalRule": "expand",
             "mlpRatio": 1.0,
             "attentionBias": True,
             "drop": 0.1,
             "attnDrop": 0.1,
-            # Loss param (kept to preserve original training objective)
+            # Loss param
             "lambdaCons": 1,
         }
         hyperParams = SimpleNamespace(**hyperParams)
@@ -75,7 +71,6 @@ class BolT(nn.Module):
         dim = input_size
         n_classes = output_size
 
-        self.lambdaCons = hyperParams.lambdaCons  # used in loss calculation
         self.clsToken = nn.Parameter(torch.zeros(1, 1, dim))
 
         shiftSize = int(hyperParams.windowSize * hyperParams.shiftCoeff)
@@ -245,7 +240,7 @@ class BolT(nn.Module):
         return train_logs, test_logs
 
 
-# ==== Utility ====
+# ==== BolT submodules and utilities ====
 
 def windowBoldSignal(boldSignal, windowLength, stride):
     """
