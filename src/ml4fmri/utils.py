@@ -3,7 +3,7 @@ from importlib.resources import files, as_file
 
 def load_packaged_weights(rel_path):
     """
-    rel_path like 'weights/meanMLP.pt' inside ml4fmri.data
+    rel_path like 'weights/whole_milc.pth' inside ml4fmri.data
     Returns a loaded object/state_dict with torch.load.
     """
     res = files("ml4fmri.data").joinpath(rel_path)

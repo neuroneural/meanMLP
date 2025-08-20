@@ -133,10 +133,11 @@ def cvbench(
     
     train_logs = []
     test_logs = []
-
+    train_splits, val_splits, test_splits = [], [], []
+    
     for model_name, model_class in chosen_model_dict.items(): # Model loop
         LOGGER.info(f"Training model: {model_name}")
-
+            
         for fold_idx, (train_idx, test_idx) in enumerate(skf.split(data, labels)): # CV loop
 
             # Split data into train and test sets
@@ -145,9 +146,13 @@ def cvbench(
 
             # Inner split for validation from the training fold
             sss = StratifiedShuffleSplit(n_splits=1, test_size=val_ratio, random_state=random_state)
-            train_idx, val_idx = next(sss.split(X_train_full, y_train_full))
-            X_train, y_train = X_train_full[train_idx], y_train_full[train_idx]
+            tr_idx, val_idx = next(sss.split(X_train_full, y_train_full))
+            X_train, y_train = X_train_full[tr_idx], y_train_full[tr_idx]
             X_val, y_val = X_train_full[val_idx], y_train_full[val_idx]
+
+            train_splits.append(train_idx[tr_idx].tolist())
+            val_splits.append(train_idx[val_idx].tolist())
+            test_splits.append(test_idx.tolist())
 
             # Prepare dataloaders via model class helper, handle data transforms inside if needed 
             # (e.g., FNC derivation from time series, or z-scoring)
@@ -176,12 +181,15 @@ def cvbench(
     test_df_all = pd.concat(test_logs, ignore_index=True)
 
     meta = {
+        "models": [m for m in chosen],
         "n_folds": int(n_folds),
         "val_ratio": float(val_ratio),
-        "models": [m for m in chosen],
         "random_state": int(random_state),
         "input_size": int(D),
         "n_classes": int(C),
+        "train_indices": train_splits[:n_folds],
+        "val_indices":   val_splits[:n_folds],
+        "test_indices":  test_splits[:n_folds],
     }
     return Report(train_df_all, test_df_all, meta)
 
