@@ -1,11 +1,18 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """
-Glacier model module (pruned & streamlined)
+Glacier model module.
 
-- Keep a small `model_cfg` dict (as requested), but remove unused keys.
-- Use batch_first=True for Transformer and MultiheadAttention to reduce permutes.
-- Remove redundant activations / attributes; keep only what’s used.
-- Minor tensor-shape hygiene and fewer reshapes.
+Transformer-based connectivity estimator and classifier, works with any time series.
+
+@INPROCEEDINGS{glacier,
+    author={Mahmood, Usman and Fu, Zening and Calhoun, Vince and Plis, Sergey},
+    booktitle={ICASSP 2023 - 2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 
+    title={Glacier: Glass-Box Transformer for Interpretable Dynamic Neuroimaging}, 
+    year={2023},
+    pages={1-5},
+    doi={10.1109/ICASSP49357.2023.10097126}
+}
+
 """
 
 import torch
@@ -21,36 +28,10 @@ from .helper_functions import (
 )
 
 
-class GlacierLoss:
-    """Cross-entropy + L1 regularization"""
-
-    def __init__(self, reg_param: float = 1e-7):
-        self.reg_param = reg_param
-
-    def __call__(self, loss_load, targets):
-        logits = loss_load["logits"]
-        model = loss_load["model"]
-        device = logits.device
-
-        ce_loss = cross_entropy(logits, targets)
-
-        # L1 on all non-bias params of GTA blocks
-        reg_loss = torch.zeros((), device=device)
-        for module in (model.gta_embed, model.gta_attend):
-            for name, p in module.named_parameters():
-                if p.requires_grad and "bias" not in name:
-                    reg_loss = reg_loss + p.abs().sum()
-
-        loss = ce_loss + self.reg_param * reg_loss
-        return loss, {
-            "ce_loss": float(ce_loss.detach().cpu().item()),
-            "reg_loss": float(reg_loss.detach().cpu().item()),
-        }
-
-
 class Glacier(nn.Module):
     """
     TIME SERIES MODEL
+
     Glacier model from https://doi.org/10.1109/icassp49357.2023.10097126.
     Original: https://github.com/UsmanMahmood27/Glacier.
     Expected input shape: [batch_size, time_length, input_feature_size].
@@ -295,6 +276,34 @@ class Glacier(nn.Module):
         
         train_logs, test_logs = trainer.run()
         return train_logs, test_logs
+
+
+class GlacierLoss:
+    """Cross-entropy + L1 regularization"""
+
+    def __init__(self, reg_param: float = 1e-7):
+        self.reg_param = reg_param
+
+    def __call__(self, loss_load, targets):
+        logits = loss_load["logits"]
+        model = loss_load["model"]
+        device = logits.device
+
+        ce_loss = cross_entropy(logits, targets)
+
+        # L1 on all non-bias params of GTA blocks
+        reg_loss = torch.zeros((), device=device)
+        for module in (model.gta_embed, model.gta_attend):
+            for name, p in module.named_parameters():
+                if p.requires_grad and "bias" not in name:
+                    reg_loss = reg_loss + p.abs().sum()
+
+        loss = ce_loss + self.reg_param * reg_loss
+        return loss, {
+            "ce_loss": float(ce_loss.detach().cpu().item()),
+            "reg_loss": float(reg_loss.detach().cpu().item()),
+        }
+    
 
 class Flatten(nn.Module):
     def forward(self, x):

@@ -1,5 +1,21 @@
 # pylint: disable=invalid-name, missing-function-docstring, missing-class-docstring, unused-argument, too-few-public-methods, no-member, too-many-arguments, line-too-long, too-many-instance-attributes
-""" BrainNetCNN model module"""
+"""
+BrainNetCNN model module
+
+Works with FNC data.
+
+@article{brainnetcnn,
+    title = {BrainNetCNN: Convolutional neural networks for brain networks; towards predicting neurodevelopment},
+    journal = {NeuroImage},
+    volume = {146},
+    pages = {1038-1049},
+    year = {2017},
+    issn = {1053-8119},
+    doi = {10.1016/j.neuroimage.2016.09.046},
+    url = {https://www.sciencedirect.com/science/article/pii/S1053811916305237},
+    author = {Jeremy Kawahara and Colin J. Brown and Steven P. Miller and Brian G. Booth and Vann Chau and Ruth E. Grunau and Jill G. Zwicker and Ghassan Hamarneh},
+}
+"""
 
 from torch.nn import functional as F
 from torch import nn, optim
@@ -10,6 +26,7 @@ from .helper_functions import basic_ce_loss, basic_handle_batch, basic_dataloade
 class BrainNetCNN(nn.Module):
     """
     FNC MODEL
+    
     BrainNetCNN model from https://doi.org/10.1016/j.neuroimage.2016.09.046.
     Orig implementation: https://github.com/Wayfear/BrainNetworkTransformer.
     Expected input shape: [batch_size, input_feature_size, input_feature_size].

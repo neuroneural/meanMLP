@@ -1,6 +1,20 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """ 
-DICE model module 
+DICE model module.
+
+LSTM-based connectivity estimator and classifier, works with time series.
+
+@article{dice,
+    title = {Through the looking glass: Deep interpretable dynamic directed connectivity in resting {fMRI}},
+    journal = {NeuroImage},
+    volume = {264},
+    pages = {119737},
+    year = {2022},
+    issn = {1053-8119},
+    doi = {10.1016/j.neuroimage.2022.119737},
+    url = {https://www.sciencedirect.com/science/article/pii/S1053811922008588},
+    author = {Usman Mahmood and Zening Fu and Satrajit Ghosh and Vince Calhoun and Sergey Plis},
+}
 """
 
 import torch

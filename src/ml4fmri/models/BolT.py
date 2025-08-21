@@ -1,6 +1,22 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """
-BolT model module (pruned & streamlined)
+BolT model module.
+
+Sliding window transformer model for fMRI time series analysis. 
+Fairly good, one of the few models that outperformed meanMLP on large datasets.
+
+@article{bolT,
+    title = {BolT: Fused window transformers for fMRI time series analysis},
+    journal = {Medical Image Analysis},
+    volume = {88},
+    pages = {102841},
+    year = {2023},
+    issn = {1361-8415},
+    doi = {10.1016/j.media.2023.102841},
+    url = {https://www.sciencedirect.com/science/article/pii/S1361841523001019},
+    author = {Hasan A. Bedel and Irmak Sivgin and Onat Dalmaz and Salman U.H. Dar and Tolga Çukur},
+}
+
 """
 
 import math

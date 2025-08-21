@@ -1,5 +1,18 @@
 # pylint: disable=invalid-name, missing-function-docstring, missing-class-docstring, unused-argument, too-few-public-methods, no-member, too-many-arguments, line-too-long, too-many-instance-attributes
-""" BNT model module"""
+"""
+BNT model module
+
+Works with FNC data.
+
+@inproceedings{bnt,
+    title={Brain Network Transformer},
+    author={Xuan Kan and Wei Dai and Hejie Cui and Zilong Zhang and Ying Guo and Carl Yang},
+    booktitle={Advances in Neural Information Processing Systems},
+    editor={Alice H. Oh and Alekh Agarwal and Danielle Belgrave and Kyunghyun Cho},
+    year={2022},
+    url={https://openreview.net/forum?id=1cJ1cbA6NLN}
+}
+"""
 
 
 import numpy as np

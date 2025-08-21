@@ -1,5 +1,17 @@
 # pylint: disable=invalid-name, missing-function-docstring, missing-class-docstring, unused-argument, too-few-public-methods, no-member, too-many-arguments, line-too-long, too-many-instance-attributes, too-many-locals
-""" FBNetGen model module"""
+"""
+FBNetGen model module
+
+Works simultaneously with time series and FNC data.
+
+@inproceedings{fbnetgen,
+    title={{FBNETGEN}: Task-aware {GNN}-based f{MRI} Analysis via Functional Brain Network Generation},
+    author={Xuan Kan and Hejie Cui and Joshua Lukemire and Ying Guo and Carl Yang},
+    booktitle={Medical Imaging with Deep Learning},
+    year={2022},
+    url={https://openreview.net/forum?id=oWFphg2IKon}
+}
+"""
 
 from types import SimpleNamespace
 import numpy as np
@@ -10,7 +22,7 @@ from torch.nn import Conv1d, MaxPool1d, Linear, GRU
 from torch import nn
 import torch
 
-from .helper_functions import basic_handle_batch, basic_dataloader, basic_Adam_optimizer, BasicTrainer
+from .helper_functions import basic_handle_batch, basic_dataloader, BasicTrainer
 
 class FBNetGen(nn.Module):
     """

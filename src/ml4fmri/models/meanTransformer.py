@@ -1,5 +1,22 @@
 # pylint: disable=invalid-name, missing-function-docstring, no-member
-""" Transformer model module """
+""" 
+meanTransformer model module.
+
+Transformer-encoder based classifier with encoder output averaging, applicable to any time series.
+Was used in:
+
+@article{meanMLP,
+    title = {A simple but tough-to-beat baseline for fMRI time-series classification},
+    journal = {NeuroImage},
+    volume = {303},
+    pages = {120909},
+    year = {2024},
+    issn = {1053-8119},
+    doi = {10.1016/j.neuroimage.2024.120909},
+    url = {https://www.sciencedirect.com/science/article/pii/S1053811924004063},
+    author = {Pavel Popov and Usman Mahmood and Zening Fu and Carl Yang and Vince Calhoun and Sergey Plis},
+}
+"""
 import math
 import torch
 from torch import nn

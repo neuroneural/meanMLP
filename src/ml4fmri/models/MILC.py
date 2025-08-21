@@ -1,6 +1,24 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """ 
-MILC model module 
+MILC model module.
+
+CNN+LSTM model for fMRI data, can work with any time series.
+
+@inproceedings{wholeMILC,
+    author = {Mahmood, Usman and Rahman, Md Mahfuzur and Fedorov, Alex and Lewis, Noah and Fu, Zening and Calhoun, Vince D. and Plis, Sergey M.},
+    title = {Whole MILC: Generalizing Learned Dynamics Across Tasks, Datasets, and Populations},
+    year = {2020},
+    isbn = {978-3-030-59727-6},
+    publisher = {Springer-Verlag},
+    address = {Berlin, Heidelberg},
+    url = {https://doi.org/10.1007/978-3-030-59728-3_40},
+    doi = {10.1007/978-3-030-59728-3_40},
+    booktitle = {Medical Image Computing and Computer Assisted Intervention – MICCAI 2020: 23rd International Conference, Lima, Peru, October 4–8, 2020, Proceedings, Part VII},
+    pages = {407–417},
+    numpages = {11},
+    keywords = {Resting state fMRI., Deep learning, Self-supervised, Transfer learning},
+    location = {Lima, Peru}
+}
 """
 
 from sys import path

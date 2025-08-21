@@ -1,6 +1,21 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """ 
-LR model module
+Logistic regression model module.
+
+Classic logistic regression model, wired for FNC classification.
+
+@article{logit,
+    author = {Joseph Berkson},
+    title = {Application of the Logistic Function to Bio-Assay},
+    journal = {Journal of the American Statistical Association},
+    volume = {39},
+    number = {227},
+    pages = {357--365},
+    year = {1944},
+    doi = {10.1080/01621459.1944.10500699},
+    URL = {https://doi.org/10.1080/01621459.1944.10500699},
+    eprint = {https://doi.org/10.1080/01621459.1944.10500699}
+}
 """
 
 import numpy as np
@@ -13,6 +28,7 @@ from .helper_functions import corrcoef_batch, compute_metrics
 class LR():
     """
     FNC MODEL
+
     Basic logistic regression model for fMRI data.
     Based on the sklearn's logistic regression, basically a wrapper that adds cvbench-required API.
     Expected input shape: [batch_size, input_feature_size, input_feature_size].
@@ -117,6 +133,8 @@ class LR():
         train_log = compute_metrics(y_true=train_labels, y_pred=y_pred, y_prob=y_score)
         train_logs.update({f"train_{k}": v for k, v in train_log.items()})
         train_logs.update({f"val_{k}": v for k, v in train_log.items()})
+        train_loss = np_cross_entropy(y_score, train_labels)
+        train_logs.update({"train_loss": train_loss, "val_loss": train_loss})
         train_logs = pd.DataFrame([train_logs])
         
         # test
@@ -129,6 +147,19 @@ class LR():
             "train_time": training_time,
             "n_params": self.model.coef_.size,
         })
+        test_loss = np_cross_entropy(y_score, test_labels)
+        test_logs.update({"test_loss": test_loss})
         test_logs = pd.DataFrame([test_logs])
 
         return train_logs, test_logs
+
+
+import numpy as np
+
+def np_cross_entropy(y_prob, y_true, eps: float = 1e-12):
+    B, C = y_prob.shape
+
+    p_true = y_prob[np.arange(B), y_true]
+    loss = -np.log(np.clip(p_true, eps, 1.0))
+
+    return float(loss.mean())

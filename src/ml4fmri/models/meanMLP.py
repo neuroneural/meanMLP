@@ -1,8 +1,26 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """ 
-meanMLP model module 
-Besides that, this is also a showcase module that explains the general API for all models.
+meanMLP model module.
+
+Simple time series model, surprisingly good on fMRI classification.
+
+This is also a showcase module that explains the general API for all models.
 It is commented in greater detail, presents and explains the calls common to all models.
+
+Each module docstring contains .bib item of the paper that presented the respective model.
+For meanMLP, it is:
+
+@article{meanMLP,
+    title = {A simple but tough-to-beat baseline for fMRI time-series classification},
+    journal = {NeuroImage},
+    volume = {303},
+    pages = {120909},
+    year = {2024},
+    issn = {1053-8119},
+    doi = {10.1016/j.neuroimage.2024.120909},
+    url = {https://www.sciencedirect.com/science/article/pii/S1053811924004063},
+    author = {Pavel Popov and Usman Mahmood and Zening Fu and Carl Yang and Vince Calhoun and Sergey Plis},
+}
 """
 
 import torch
@@ -13,7 +31,9 @@ from .helper_functions import basic_ce_loss, basic_handle_batch, basic_dataloade
 class meanMLP(nn.Module):
     """
     TIME SERIES MODEL
+
     meanMLP model for fMRI data from https://doi.org/10.1016/j.neuroimage.2024.120909
+    
     Expected input shape: [batch_size, time_length, input_feature_size].
     Output: [batch_size, n_classes], loss_load = {"logits": logits}
     """

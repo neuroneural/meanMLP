@@ -1,3 +1,7 @@
+"""
+Collection of helper functions, common model routines, and a training script.
+"""
+
 import numpy as np
 import pandas as pd
 
@@ -32,6 +36,7 @@ def basic_ce_loss(logits, targets):
 
 
 def basic_Adam_optimizer(model, lr):
+    """ Basic Adam optimizer """
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     return optimizer
 
@@ -195,7 +200,9 @@ def corrcoef_batch(x, eps=1e-8):
 
 
 class BasicTrainer:
-    """Basic training loop using model-provided helpers.
+    """
+    Basic training loop using model-provided helpers. 
+    Trains the model for a given number of epochs but stops if validation loss doesn't improve for `patience` epochs.
 
     Args
     ----
@@ -214,12 +221,10 @@ class BasicTrainer:
 
     Returns on `run()`
     ------------------
-    model : torch.nn.Module
-        Model loaded with **best** validation weights.
     train_df : pandas.DataFrame
-        One row per epoch with train/val metrics.
+        Training log useful for training analysis. Can be used to check training curves.
     test_df : pandas.DataFrame
-        Single-row DataFrame with test metrics for the best model (+ training_time, n_params).
+        Test log with classification scores.
     """
 
     def __init__(

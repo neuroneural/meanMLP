@@ -1,6 +1,42 @@
 # pylint: disable=invalid-name, missing-function-docstring
 """ 
-meanLSTM model module 
+meanLSTM model module.
+
+LSTM-based classifier with encoder output averaging, applicable to any time series.
+Was used in:
+
+@article{meanMLP,
+    title = {A simple but tough-to-beat baseline for fMRI time-series classification},
+    journal = {NeuroImage},
+    volume = {303},
+    pages = {120909},
+    year = {2024},
+    issn = {1053-8119},
+    doi = {10.1016/j.neuroimage.2024.120909},
+    url = {https://www.sciencedirect.com/science/article/pii/S1053811924004063},
+    author = {Pavel Popov and Usman Mahmood and Zening Fu and Carl Yang and Vince Calhoun and Sergey Plis},
+}
+
+Somewhat similar to:
+
+@InProceedings{earlyLSTM,
+    author="Dvornek, Nicha C.
+    and Ventola, Pamela
+    and Pelphrey, Kevin A.
+    and Duncan, James S.",
+    editor="Wang, Qian
+    and Shi, Yinghuan
+    and Suk, Heung-Il
+    and Suzuki, Kenji",
+    title="Identifying Autism from Resting-State fMRI Using Long Short-Term Memory Networks",
+    booktitle="Machine Learning in Medical Imaging",
+    year="2017",
+    publisher="Springer International Publishing",
+    address="Cham",
+    pages="362--370",
+    isbn="978-3-319-67389-9",
+    doi={10.1007/978-3-319-67389-9_42}
+}
 """
 
 import torch
@@ -11,6 +47,7 @@ from .helper_functions import basic_ce_loss, basic_handle_batch, basic_dataloade
 class meanLSTM(nn.Module):
     """
     TIME SERIES MODEL
+
     LSTM model with temporal averaging for fMRI data from https://doi.org/10.1016/j.neuroimage.2024.120909. 
     Similar in approach to the earlier LSTM model for fMRI from https://doi.org/10.1007/978-3-319-67389-9_42.
     Expected input shape: [batch_size, time_length, input_feature_size].
