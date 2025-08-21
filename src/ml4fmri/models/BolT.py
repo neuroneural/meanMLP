@@ -26,7 +26,6 @@ import torch
 from torch import nn
 from torch.nn.functional import cross_entropy
 from torch.nn.init import trunc_normal_
-from einops import rearrange
 
 from .helper_functions import (
     basic_handle_batch,
@@ -369,9 +368,10 @@ class WindowAttention(nn.Module):
         # projections & split heads
         q = self.q(x)  # (B*nW, n_tok, H*d)
         k, v = self.kv(x_).chunk(2, dim=-1)
-        q = rearrange(q, "b n (h d) -> b h n d", h=H)
-        k = rearrange(k, "b m (h d) -> b h m d", h=H)
-        v = rearrange(v, "b m (h d) -> b h m d", h=H)
+        d = (self.q.out_features // H)  # per-head dim
+        q = q.view(BnW, n_tok, H, d).permute(0, 2, 1, 3).contiguous()   # (B*nW, H, n_tok, d)
+        k = k.view(BnW, m_tok, H, d).permute(0, 2, 1, 3).contiguous()   # (B*nW, H, m_tok, d)
+        v = v.view(BnW, m_tok, H, d).permute(0, 2, 1, 3).contiguous()   # (B*nW, H, m_tok, d)
 
         # attention logits
         attn = torch.matmul(q, k.transpose(-1, -2)) * self.scale  # (B*nW, H, n_tok, m_tok)
@@ -388,13 +388,13 @@ class WindowAttention(nn.Module):
 
         # masking first/last windows (broadcasted boolean masks, no .repeat)
         mask_left, mask_right = mask  # (maskCount, n_tok, m_tok), bool
-        attn = rearrange(attn, "(b nW) h n m -> b nW h n m", b=B, nW=nW)
+        attn = attn.view(B, nW, H, n_tok, m_tok)
         maskCount = min(mask_left.shape[0], attn.shape[1])
         if maskCount > 0:
             neg_inf = max_neg_value(attn)
             attn[:, :maskCount].masked_fill_(mask_left[:maskCount].unsqueeze(0).unsqueeze(2), neg_inf)
             attn[:, -maskCount:].masked_fill_(mask_right[-maskCount:].unsqueeze(0).unsqueeze(2), neg_inf)
-        attn = rearrange(attn, "b nW h n m -> (b nW) h n m")
+        attn = attn.view(BnW, H, n_tok, m_tok)
 
         # softmax, dropout
         attn = self.softmax(attn)
@@ -402,7 +402,8 @@ class WindowAttention(nn.Module):
 
         # apply attention to values, merge heads, project
         out = torch.matmul(attn, v)                   # (B*nW, H, n_tok, d)
-        out = rearrange(out, "b h n d -> b n (h d)")  # (B*nW, n_tok, H*d)
+        out = out.permute(0, 2, 1, 3).contiguous()    # (B*nW, n_tok, H, d)
+        out = out.view(BnW, n_tok, H * d)             # (B*nW, n_tok, H*d)
         out = self.proj(out)
         out = self.projDrop(out)
         return out
@@ -452,12 +453,13 @@ class FusedWindowTransformer(nn.Module):
             clsTrans: (B, nW, C)
         """
         # window attention over (B*nW, ·, ·)
+        B, T, C = x.shape
         windowXTrans = self.attention(self.attn_norm(windowX), self.attn_norm(windowX_), mask, nW)
         clsTrans = windowXTrans[:, :1]   # (B*nW, 1, C)
         xTrans = windowXTrans[:, 1:]     # (B*nW, windowSize, C)
 
-        clsTrans = rearrange(clsTrans, "(b nW) l c -> b (nW l) c", nW=nW)  # (B, nW, C)
-        xTrans = rearrange(xTrans, "(b nW) l c -> b nW l c", nW=nW)        # (B, nW, windowSize, C)
+        clsTrans = clsTrans.view(B, nW, 1, C).squeeze(2)   # (B, nW, C)
+        xTrans   = xTrans.view(B, nW, xTrans.size(1), C)   # (B, nW, windowSize, C)
 
         # overlap-add windows back into sequence
         xTrans = self.gatherWindows(xTrans, x.shape[1], self.shiftSize)
@@ -483,11 +485,15 @@ class FusedWindowTransformer(nn.Module):
 
         # indices of each window laid out on the time axis
         # shape: (nW, windowLength)
-        idx = torch.arange(windowLength, device=device).unsqueeze(0) + torch.arange(nW, device=device).unsqueeze(1) * shiftSize
+        idx = (
+            torch.arange(windowLength, device=device).unsqueeze(0)
+            + torch.arange(nW, device=device).unsqueeze(1) * shiftSize
+        )
         idx = idx.view(1, nW, windowLength, 1).expand(B, nW, windowLength, C)  # (B, nW, windowLength, C)
 
-        src = rearrange(windowedX, "b n w c -> b (n w) c")
-        idx = rearrange(idx, "b n w c -> b (n w) c")
+        # Use reshape (safe for non-contiguous) instead of view
+        src = windowedX.reshape(B, nW * windowLength, C)
+        idx = idx.reshape(B, nW * windowLength, C)
 
         destination.scatter_add_(dim=1, index=idx, src=src)
 
@@ -578,11 +584,10 @@ class BolTransformerBlock(nn.Module):
         nW = windowedX.shape[1]
 
         # Insert CLS token as first position in each window; then flatten windows into batch
-        xcls = torch.cat([cls.unsqueeze(dim=2), windowedX], dim=2)    # (B, nW, 1+windowSize, C)
-        xcls = rearrange(xcls, "b nw l c -> (b nw) l c")
-
-        xcls_ = torch.cat([cls.unsqueeze(dim=2), windowedX_], dim=2)  # (B, nW, 1+receptiveSize, C)
-        xcls_ = rearrange(xcls_, "b nw l c -> (b nw) l c")
+        xcls  = torch.cat([cls.unsqueeze(2),  windowedX],  dim=2)  # (B, nW, 1+W, C)
+        xcls  = xcls.view(B * nW, xcls.size(2), C)                 # (B*nW, 1+W, C)
+        xcls_ = torch.cat([cls.unsqueeze(2),  windowedX_], dim=2)  # (B, nW, 1+R, C)
+        xcls_ = xcls_.view(B * nW, xcls_.size(2), C)               # (B*nW, 1+R, C)
 
         masks = (self.mask_left, self.mask_right)
 
