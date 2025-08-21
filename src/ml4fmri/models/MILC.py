@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from .helper_functions import basic_handle_batch, basic_dataloader, basic_Adam_optimizer, BasicTrainer, zscore_np
+from .helper_functions import basic_handle_batch, basic_dataloader, BasicTrainer, zscore_np
     
 class MILCLoss:
     """Cross-entropy loss with model regularization"""
@@ -55,11 +55,10 @@ class MILC(nn.Module):
         ):
         super().__init__()
 
-        self.lr = 1e-4  # learning rate used in the paper. Defined like this in every model for reference.
-        self.reg_param = 1e-6  # regularization parameter, used in loss
+        self.lr = 2e-4  # learning rate used in the paper. Defined like this in every model for reference.
+        self.eps = 1e-5 # epsilon for Adam optimizer
+        self.reg_param = 1e-5  # regularization parameter, used in loss
         self.criterion = MILCLoss(self.reg_param)
-
-        self.input_size = input_size
 
         model_cfg = {
             "data_params": {
@@ -73,8 +72,7 @@ class MILC(nn.Module):
                 "hidden_size": 200, 
                 "n_layers": 1
             },
-            "reg_param": 1e-3,
-            "pretrained": True,
+            "reg_param": 1e-5,
         }
         def dict_to_namespace(d):
             """Convert nested dict to nested SimpleNamespace"""
@@ -110,10 +108,6 @@ class MILC(nn.Module):
                 nn.init.xavier_normal_(param, gain=0.65)
 
     def get_attention(self, x):
-        """
-        x: (B, N, H) where H = 2 * hidden (bidirectional LSTM)
-        Returns: (B, H)
-        """
         B, N, H = x.shape
 
         # last window embedding per sample: (B, 1, H) so it can broadcast across N
@@ -195,7 +189,8 @@ class MILC(nn.Module):
         """
         if lr is None:
             lr = self.lr
-        return basic_Adam_optimizer(self, lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=lr, eps=self.eps)
+        return optimizer
 
     @staticmethod
     def prepare_dataloader(data,
@@ -216,11 +211,11 @@ class MILC(nn.Module):
         Returns:
             DataLoader: A PyTorch DataLoader generating the batches of time series data and labels. 
         """
-        # transform data into overlapping windows of shape (Batch, (tau)Windows, Feature_size, (W)Window_size) 
         if zscore:
             data = zscore_np(data, axis=1)
 
-        win_data = sliding_window_view(data, window_shape=window_size, axis=1)  # (B, tau, D, W)
+        # transform data into overlapping windows of shape (Batch, (tau)Windows, Feature_size, (W)Window_size) 
+        win_data = sliding_window_view(data, window_shape=window_size, axis=1)  # (B, Tau, D, W)
         win_data = win_data[:, ::window_shift, :, :]                            # (B, tau, D, W)
 
         return basic_dataloader(win_data,

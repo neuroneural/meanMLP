@@ -66,8 +66,9 @@ def basic_handle_batch(model, batch):
         Dictionary of classification metrics and losses for logs.
     """
     # load batch into model
-    data, labels = batch
-    logits, loss_load = model(data)
+    
+    data, labels = batch[:-1], batch[-1] # most of the time batch contains (data, labels), but sometimes there's more
+    logits, loss_load = model(*data)
     loss, loss_log = model.compute_loss(loss_load, labels)
 
     # compute metrics

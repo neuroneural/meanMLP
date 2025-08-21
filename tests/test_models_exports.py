@@ -6,7 +6,7 @@ import torch.nn as nn
 def _is_model_class(obj):
     return (
         inspect.isclass(obj)
-        and issubclass(obj, nn.Module)
+        and (issubclass(obj, nn.Module) or obj.__name__ == "LR")
         and hasattr(obj, "prepare_dataloader")
         and hasattr(obj, "train_model")
     )

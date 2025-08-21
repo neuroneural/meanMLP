@@ -17,6 +17,9 @@ def test_exported_models_api(toy_data, dims, toy_splits):
     names = list(getattr(mdl, "__all__", []))
     assert names, "ml4fmri.models.__all__ is empty; export your model classes there"
 
+    # Models that don't follow standard PyTorch API (e.g., sklearn-based)
+    excluded_models = ["LR"]
+
     failures = []
 
     for name in names:
@@ -24,6 +27,10 @@ def test_exported_models_api(toy_data, dims, toy_splits):
 
         def fail(msg):
             failures.append(f"[{name}] {msg}")
+
+        # Skip excluded models entirely
+        if name in excluded_models:
+            continue
 
         # 1) constructor: (input_size, output_size)
         try:
@@ -57,14 +64,8 @@ def test_exported_models_api(toy_data, dims, toy_splits):
                 fail("train dataloader yielded no batches")
                 continue
 
-            # accept tuple OR list of length 2
-            if not (isinstance(batch, (tuple, list)) and len(batch) == 2):
-                blen = getattr(batch, "__len__", lambda: "?")()
-                fail(f"batch is not a 2-element (tuple/list): type={type(batch)}, len={blen}")
-                continue
-
-            bx, by = batch
-            if not (isinstance(bx, torch.Tensor) and isinstance(by, torch.Tensor)):
+            bx, by = batch[:-1], batch[-1] # most of the time batch contains (data, labels), but sometimes there's more
+            if not isinstance(by, torch.Tensor):
                 fail("batch elements are not torch.Tensors")
         except Exception as e:
             fail(f"consuming first batch raised: {e}")
@@ -72,7 +73,7 @@ def test_exported_models_api(toy_data, dims, toy_splits):
 
         # 4) forward returns (logits, dict)
         try:
-            logits, loss_load = m(bx)
+            logits, loss_load = m(*bx)
             if not (isinstance(logits, torch.Tensor) and logits.ndim == 2 and logits.shape[1] == C):
                 fail(f"forward: logits has wrong shape {tuple(getattr(logits,'shape',()))}; expected (*, {C})")
             if not isinstance(loss_load, dict):
@@ -99,7 +100,7 @@ def test_exported_models_api(toy_data, dims, toy_splits):
             fail("missing handle_batch")
         else:
             try:
-                loss2, blog = m.handle_batch((bx, by))
+                loss2, blog = m.handle_batch(batch)
                 if not (isinstance(loss2, torch.Tensor) and torch.isfinite(loss2).item()):
                     fail("handle_batch: loss is not finite")
                 if not isinstance(blog, dict):

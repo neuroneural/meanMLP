@@ -9,6 +9,10 @@ from .BolT import BolT
 from .DICE import DICE
 from .Glacier import Glacier
 from .MILC import MILC
+from .BrainNetCNN import BrainNetCNN
+from .FBNetGen import FBNetGen
+from .BNT import BNT
+from .LR import LR
 
-__all__ = ['meanMLP', 'LSTM', 'meanLSTM', 'Transformer', 'meanTransformer', 'BolT', 'DICE', 'Glacier', 'MILC']
+__all__ = ['meanMLP', 'LSTM', 'meanLSTM', 'Transformer', 'meanTransformer', 'BolT', 'DICE', 'Glacier', 'MILC', 'BrainNetCNN', 'FBNetGen', 'BNT', 'LR']
 
