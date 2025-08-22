@@ -21,7 +21,11 @@ import json
 import time
 import numpy as np
 import pandas as pd
+
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+from matplotlib.lines import Line2D
+
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 
 import torch
@@ -271,6 +275,8 @@ class Report(object):
         """Save train and test dataframes at path directory"""
         if path is not None:
             assert os.path.isdir(path), f"Path '{path}' is not a valid directory"
+        else:
+            path = os.getcwd()
 
         train_path = os.path.join(path, "cvbench_train.csv")
         test_path = os.path.join(path, "cvbench_test.csv")
@@ -299,7 +305,9 @@ class Report(object):
 
         # draw blue dashed line at y = 0.5 if plotting an AUC metric
         if 'auc' in metric:
-            ax.axhline(y=0.5, color='lightblue', linestyle='dashed', linewidth=1)
+            all_vals = np.concatenate(data)
+            if np.nanmin(all_vals) <= 0.5 <= np.nanmax(all_vals):
+                ax.axhline(y=0.5, color='lightblue', linestyle='dashed', linewidth=1)
 
         ax.boxplot(data, tick_labels=order, showfliers=show_outliers)
         ax.set_ylabel("Test AUC" if metric == "test_auc" else metric)
@@ -321,11 +329,7 @@ class Report(object):
     def plot_scores_h(self, metric="test_auc", show=True, show_outliers=False):
         """
         Horizontal boxplots of a test metric per model across folds.
-        - Best (highest median) model appears at the TOP.
-        - Y labels are drawn inside the axes, slightly above each box, left-aligned.
         """
-        import numpy as np
-        import matplotlib.pyplot as plt
 
         if metric not in self.test_df.columns:
             raise KeyError("Metric '%s' not found in test_df columns: %s"
@@ -359,7 +363,9 @@ class Report(object):
         )
         # draw blue dashed line at x = 0.5 if plotting an AUC metric
         if 'auc' in metric:
-            ax.axvline(x=0.5, color='lightblue', linestyle='dashed', linewidth=1)
+            all_vals = np.concatenate(data)
+            if np.nanmin(all_vals) <= 0.5 <= np.nanmax(all_vals):
+                ax.axvline(x=0.5, color='lightblue', linestyle='dashed', linewidth=1)
 
         ax.set_xlabel("Test AUC" if metric == "test_auc" else metric)
         ax.set_yticks([])  # hide default tick labels
@@ -388,19 +394,17 @@ class Report(object):
         """
         Plot train/val curves across epochs for all models & folds.
         Creates TWO figures: (1) loss, (2) AUC (if available).
-        - Per-model subplots do NOT share x-limits; each shows its own epoch ticks.
-        - Legend shows only two example lines (black solid = train, black dashed = val).
         """
-        import numpy as np
-        import matplotlib.pyplot as plt
-        from matplotlib.ticker import MaxNLocator
-        from matplotlib.lines import Line2D
+
+        train_color, train_style = "blue", "-"
+        val_color,   val_style   = "orange", "--"
 
         df = self.train_df.copy()
         if "model" not in df or "fold" not in df or "epoch" not in df:
             raise KeyError("train_df must contain 'model', 'fold', and 'epoch' columns.")
 
         models = list(df["model"].unique())
+        models = [m for m in models if m != 'LR'] # LR training logs aren't really logs
 
         plots = [
             ("loss",  "train_loss", "val_loss"),
@@ -424,17 +428,27 @@ class Report(object):
                     # plot each fold without adding labels (we’ll use custom legend)
                     for _, g in d.groupby("fold"):
                         if train_key in g.columns and val_key in g.columns:
-                            ax.plot(g["epoch"], g[train_key], color="C0", alpha=0.6, linewidth=1.2)
-                            ax.plot(g["epoch"], g[val_key], color="C0", alpha=0.9, linestyle="--", linewidth=1.2)
+                            ax.plot(g["epoch"], g[train_key],
+                                color=train_color, linestyle=train_style,
+                                alpha=0.4, linewidth=1.2)
+                            ax.plot(g["epoch"], g[val_key],
+                                color=val_color,   linestyle=val_style,
+                                alpha=0.4, linewidth=1.2)
+        
                     ax.set_title(f"{model} – {name}")
                     ax.set_ylabel(name)
                     ax.grid(True, linestyle=":", linewidth=0.5)
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                     ax.set_xlabel("epoch")
-                # custom legend: only two example lines
+
+                # then update the legend handles accordingly:
                 handles = [
-                    Line2D([0], [0], color="black", linestyle="-", linewidth=1.5, label="train"),
-                    Line2D([0], [0], color="black", linestyle="--", linewidth=1.5, label="val"),
+                    Line2D([0], [0],
+                    color=train_color, linestyle=train_style,
+                    linewidth=1.5, label="train"),
+                    Line2D([0], [0],
+                    color=val_color, linestyle=val_style,
+                    linewidth=1.5, label="val"),
                 ]
                 fig.legend(handles=handles, loc="upper right")
                 fig.tight_layout(rect=[0, 0, 0.9, 1])
