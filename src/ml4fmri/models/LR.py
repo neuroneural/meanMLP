@@ -109,7 +109,12 @@ class LR():
             lr (optional): Kept for compatibility
             device (optional): Kept for compatibility
             patience (optional): Kept for compatibility
+        Returns
+        -------
+        (train_logs, test_logs)
+            Training and test dataframes containing loss and accuracy metrics.
         """
+        
         train_data, train_labels = train_loader
         val_data, val_labels = val_loader
         test_data, test_labels = test_loader

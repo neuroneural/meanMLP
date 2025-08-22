@@ -26,7 +26,7 @@ from .helper_functions import basic_ce_loss, basic_handle_batch, basic_dataloade
 class BrainNetCNN(nn.Module):
     """
     FNC MODEL
-    
+
     BrainNetCNN model from https://doi.org/10.1016/j.neuroimage.2016.09.046.
     Orig implementation: https://github.com/Wayfear/BrainNetworkTransformer.
     Expected input shape: [batch_size, input_feature_size, input_feature_size].
@@ -159,6 +159,10 @@ class BrainNetCNN(nn.Module):
             lr (float, optional): Optimizer learning rate (default: use model's self.lr).
             device (str, optional): Device to train the model on: "cuda", "mps", or "cpu". Default: auto-detect (cuda -> mps -> cpu).
             patience (int, optional): Early stopping patience (in epochs). Defaults to 30.
+        Returns
+        -------
+        (train_logs, test_logs)
+            Training and test dataframes containing loss and accuracy metrics.
         """
 
         trainer = BasicTrainer(

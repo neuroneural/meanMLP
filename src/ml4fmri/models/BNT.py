@@ -259,6 +259,10 @@ class BNT(nn.Module):
             lr (float, optional): Optimizer learning rate (default: use model's self.lr).
             device (str, optional): Device to train the model on: "cuda", "mps", or "cpu". Default: auto-detect (cuda -> mps -> cpu).
             patience (int, optional): Early stopping patience (in epochs). Defaults to 30.
+        Returns
+        -------
+        (train_logs, test_logs)
+            Training and test dataframes containing loss and accuracy metrics.
         """
 
         trainer = BasicTrainer(
