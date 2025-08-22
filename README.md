@@ -53,7 +53,7 @@ You can set `models` input in `cvbench` to:
 - **'lite'** (default) – use only faster models, better for quick tests  
 - **'ts'** – run only time series models  
 - **'fnc'** – run only FNC models; FNC data is derived from input time series  
-- **'<model_name>'** – run only the specified model (e.g. 'meanMLP'); see ml4fmri.models README for full list  
+- **'<model_name>'** – run only the specified model (e.g. 'meanMLP'); see below for full model list  
 - **['<model_name_1>', '<model_name_2>']** – run only the listed models  
 
 ### Time Series Models
