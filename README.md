@@ -1,3 +1,4 @@
+![cvbench output example](https://github.com/neuroneural/meanMLP/blob/ml4fmri/assets/cvbench_example.png?raw=true)
 # ml4fmri
 
 A **one-line Python toolkit** for fMRI classification that allows you to benchmark multiple deep learning models for fMRI analysis on your data with a single function call. While designed for fMRI time series, it can work with any temporal classification task.
