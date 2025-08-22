@@ -16,6 +16,16 @@ Was used in:
     url = {https://www.sciencedirect.com/science/article/pii/S1053811924004063},
     author = {Pavel Popov and Usman Mahmood and Zening Fu and Carl Yang and Vince Calhoun and Sergey Plis},
 }
+
+More original paper:
+@article{attention_is_all_you_need,
+      title={Attention Is All You Need}, 
+      author={Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and Lukasz Kaiser and Illia Polosukhin},
+      year={2023},
+      journal={arXiv:1706.03762},
+      url={https://arxiv.org/abs/1706.03762}, 
+      doi={10.48550/arXiv.1706.03762}
+}
 """
 import math
 import torch

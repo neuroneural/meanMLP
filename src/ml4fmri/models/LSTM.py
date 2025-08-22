@@ -16,6 +16,23 @@ Fairly generic design, this one was used in:
     url = {https://www.sciencedirect.com/science/article/pii/S1053811924004063},
     author = {Pavel Popov and Usman Mahmood and Zening Fu and Carl Yang and Vince Calhoun and Sergey Plis},
 }
+
+More original paper (Schmidhuber!!):
+
+@article{lstm,
+    author = {Hochreiter, Sepp and Schmidhuber, Jürgen},
+    title = {Long Short-Term Memory},
+    journal = {Neural Computation},
+    volume = {9},
+    number = {8},
+    pages = {1735-1780},
+    year = {1997},
+    month = {11},
+    issn = {0899-7667},
+    doi = {10.1162/neco.1997.9.8.1735},
+    url = {https://doi.org/10.1162/neco.1997.9.8.1735},
+    eprint = {https://direct.mit.edu/neco/article-pdf/9/8/1735/813796/neco.1997.9.8.1735.pdf},
+}
 """
 
 import torch

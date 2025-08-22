@@ -19,7 +19,7 @@ Was used in:
 
 Somewhat similar to:
 
-@InProceedings{earlyLSTM,
+@InProceedings{early_LSTM_for_fMRI,
     author="Dvornek, Nicha C.
     and Ventola, Pamela
     and Pelphrey, Kevin A.
