@@ -63,10 +63,7 @@ LITE_MODELS = [
     'LR',
     'meanMLP',
     'MILC',
-    'meanTransformer',
     'BNT',
-    'BrainNetCNN',
-    'meanLSTM',
 ]
 
 TS_MODELS = [
