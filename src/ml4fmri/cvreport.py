@@ -101,7 +101,7 @@ def _discover_models():
 def cvbench(
     data,
     labels,
-    models: str | list[str] = "lite",
+    models: str | list[str] = None,
     n_folds: int = 10,
     val_ratio: float = 0.2,
     random_state: int = 42,
@@ -117,7 +117,7 @@ def cvbench(
     ----------
     data : array (B, T, D)
     labels : array (B,)
-    models : "lite" (default) | "all" | "ts" | "fnc" | "model_name" (e.g., "meanMLP") | list of model names (e.g., ["meanMLP", "meanLSTM"]).
+    models : "lite" | "all" | "ts" | "fnc" | "model_name" (e.g., "meanMLP") | list of model names (e.g., ["meanMLP", "meanLSTM"]). Default: "lite" if using CPU, "all" if GPU or Apple MPS is available.
     n_folds : number of CV folds.
     val_ratio : fraction of the training fold to reserve for validation.
     random_state : seed for the CV splits.
@@ -126,8 +126,8 @@ def cvbench(
     device : device to run the training on (if None, uses cuda -> apple mps -> cpu).
     patience : early stopping patience for training.
     """
-
     LOGGER = logging.getLogger("cvbench")
+
 
     # check data
     data = np.asarray(data)
@@ -143,6 +143,26 @@ def cvbench(
     B, T, D = data.shape
     C = np.unique(labels).shape[0]
     assert C >= 2, f"Expected at least 2 classes in labels; got {C}"
+
+    LOGGER.info(f"Got data in shape {data.shape} and labels in shape {labels.shape} ({np.unique(labels)} unique classes)")
+
+
+    # detect devices: if anything other than CPU is available, test all models; otherwise use only lite models.
+    if device is not None:
+        LOGGER.info(f"Using device: {device}")
+    else:
+        device = "cuda" if torch.cuda.is_available() \
+            else "mps" if torch.backends.mps.is_available() \
+                else "cpu"
+
+        LOGGER.info(f"Using device: {device}")
+
+    if models is None:
+        if device == "cpu":
+            models = "lite"
+        else:
+            models = "all"
+
 
     # automated model discovery and selection routine
     available_model_dict = _discover_models() # scan ml4fmri.models for model classes
@@ -165,17 +185,10 @@ def cvbench(
     chosen_model_dict = {m: available_model_dict[m] for m in chosen}
     LOGGER.info(f"Running models: {chosen}")
 
+
     # Run CV for each chosen model
     skf = StratifiedKFold(n_splits=int(n_folds), shuffle=True, random_state=int(random_state))
 
-    if device is not None:
-        LOGGER.info(f"Using device: {device}")
-    else:
-        device = "cuda" if torch.cuda.is_available() \
-            else "mps" if torch.backends.mps.is_available() \
-                else "cpu"
-
-        LOGGER.info(f"Using device: {device}")
     
     train_logs = []
     test_logs = []

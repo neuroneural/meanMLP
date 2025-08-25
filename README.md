@@ -3,10 +3,7 @@
 
 A **one-line Python toolkit** for fMRI classification that allows you to benchmark multiple deep learning models for fMRI analysis on your data with a single function call. While designed for fMRI time series, it can work with any temporal classification task.
 
-Originally based on the codebase behind the NeuroImage paper:  
-["A simple but tough-to-beat baseline for fMRI time-series classification"](https://doi.org/10.1016/j.neuroimage.2024.120909)
-
-
+Originally based on the codebase behind the NeuroImage paper ["A simple but tough-to-beat baseline for fMRI time-series classification"](https://doi.org/10.1016/j.neuroimage.2024.120909)
 
 ## Use example
 
@@ -16,20 +13,17 @@ You can install the package directly from PyPI:
 pip install ml4fmri
 ```
 
-
-For a more detailed guide, check out the **Colab tutorial**:
-
-👉 [Open in Google Colab](https://colab.research.google.com/drive/1JIaHvSxDTzLAqnMEXa_0l1wZzhJaAHmi?usp=sharing)
+For a more detailed guide, check out the 👉 [**Colab tutorial**](https://colab.research.google.com/drive/1-WtiB3ne4dkiOg8lt7MyzDYADMnE1lTv?usp=sharing).
 
 
 ```python
-# In Python, get fMRI time series data in shape (samples, time, n_features)
-# and labels in shape (samples) (binary or multiclass)
+# In Python, get fMRI time series DATA in shape (SAMPLES, TIME, FEATURES)
+# and LABELS in shape (SAMPLES) (binary or multiclass)
 
 from ml4fmri import cvbench  # runs CV experiments with implemented models on the given data
 
 # Run cross-validation with all available models. See below for more info on available `models`
-report = cvbench(data, labels, models='all', n_folds=5)
+report = cvbench(DATA, LABELS, models='all', n_folds=5)
 
 # Plot test AUC boxplots for all models
 report.plot_scores()
@@ -49,8 +43,8 @@ report.plot_training_curves()
 
 ## Available Models
 You can set `models` input in `cvbench` to:
-- **'all'** - run all models,
-- **'lite'** (default) – use only faster models, better for quick tests  
+- **'all'** - (default for non-CPU) run all models,
+- **'lite'** (default for CPU) – use only faster models, better for quick tests  
 - **'ts'** – run only time series models  
 - **'fnc'** – run only FNC models; FNC data is derived from input time series  
 - **'<model_name>'** – run only the specified model (e.g. 'meanMLP'); see below for full model list  
