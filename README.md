@@ -13,7 +13,7 @@ You can install the package directly from PyPI:
 pip install ml4fmri
 ```
 
-For a more detailed guide, check out the 👉 [**Colab tutorial**](https://colab.research.google.com/drive/1-WtiB3ne4dkiOg8lt7MyzDYADMnE1lTv?usp=sharing).
+Check out the 👉 [**Colab tutorial**](https://colab.research.google.com/drive/1-WtiB3ne4dkiOg8lt7MyzDYADMnE1lTv?usp=sharing) for a more detailed guide and ways to modify the default behavior.
 
 
 ```python

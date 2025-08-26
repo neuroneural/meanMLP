@@ -30,6 +30,7 @@ from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 
 import torch
 
+from collections import OrderedDict
 import warnings
 import logging
 import inspect
@@ -102,6 +103,7 @@ def cvbench(
     data,
     labels,
     models: str | list[str] = None,
+    custom_models: type | list[type] = None,
     n_folds: int = 10,
     val_ratio: float = 0.2,
     random_state: int = 42,
@@ -118,6 +120,7 @@ def cvbench(
     data : array (B, T, D)
     labels : array (B,)
     models : "lite" | "all" | "ts" | "fnc" | "model_name" (e.g., "meanMLP") | list of model names (e.g., ["meanMLP", "meanLSTM"]). Default: "lite" if using CPU, "all" if GPU or Apple MPS is available.
+    custom_models: model class (or a list of them) with API compatible with ml4fmri, will be used along the vanilla models, or override them (if named the same). Check Colab tutorial for examples.
     n_folds : number of CV folds.
     val_ratio : fraction of the training fold to reserve for validation.
     random_state : seed for the CV splits.
@@ -164,7 +167,9 @@ def cvbench(
             models = "all"
 
 
-    # automated model discovery and selection routine
+    # model discovery and selection routine
+    chosen_model_dict = {}
+
     available_model_dict = _discover_models() # scan ml4fmri.models for model classes
     if models == 'all':
         chosen = MODELS
@@ -181,10 +186,32 @@ def cvbench(
         chosen = models
         missing = [m for m in models if m not in available_model_dict]
         assert not missing, f"Models {missing} not found among available models: {list(available_model_dict.keys())}"
-          
     chosen_model_dict = {m: available_model_dict[m] for m in chosen}
-    LOGGER.info(f"Running models: {chosen}")
 
+    # handle custom models passed by the user
+    custom_models_list = [] if custom_models is None else custom_models if isinstance(custom_models, list) else [custom_models]
+    # rough check; it doesn't guarantee that the models will work yet, but it's a start for debugging
+    for model_class in custom_models_list:
+        assert isinstance(model_class, type), f"Custom model '{model_class}' is not a class"
+        assert hasattr(model_class, "prepare_dataloader") and hasattr(model_class, "train_model"), \
+            f"Custom model '{model_class}' must have `prepare_dataloader` and `train_model` methods defined;\
+                 see ml4fmri.models.LR and ml4fmri.models.meanMLP for examples"
+        if model_class.__name__ in chosen_model_dict:
+            LOGGER.warning(
+                f"Custom model '{model_class.__name__}' has the same name as one of the bundled models; it will replace it"
+            )
+        chosen_model_dict[model_class.__name__] = model_class
+    custom_model_dict = {model_class.__name__: model_class for model_class in custom_models_list}
+
+    final_model_dict = OrderedDict()
+    final_model_dict.update(custom_model_dict)
+    for k, v in chosen_model_dict.items():
+        if k not in final_model_dict:
+            final_model_dict[k] = v
+
+    LOGGER.info(
+        f"Running models: {list(final_model_dict.keys())}"
+    )
 
     # Run CV for each chosen model
     skf = StratifiedKFold(n_splits=int(n_folds), shuffle=True, random_state=int(random_state))
@@ -194,7 +221,7 @@ def cvbench(
     test_logs = []
     train_splits, val_splits, test_splits = [], [], []
     
-    for model_name, model_class in chosen_model_dict.items(): # Model loop
+    for model_name, model_class in final_model_dict.items(): # Model loop
         LOGGER.info(f"Training model: {model_name}")
             
         for fold_idx, (train_idx, test_idx) in enumerate(skf.split(data, labels)): # CV loop
