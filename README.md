@@ -97,17 +97,17 @@ You can set `models` input in `cvbench` to:
   [Paper](https://doi.org/10.1109/ICASSP49357.2023.10097126)
   [Code and bib item](https://github.com/neuroneural/meanMLP/blob/ml4fmri/src/ml4fmri/models/Glacier.py)
 
-- **"FBNetGen"** (Time Series + FNC)
-  Connectivity estimator, fuses it with FNC to do classification.
-  [Paper](https://openreview.net/forum?id=oWFphg2IKon)
-  [Code and bib item](https://github.com/neuroneural/meanMLP/blob/ml4fmri/src/ml4fmri/models/FBNetGen.py)
-
 ### FNC Models
 
 - **"LR"** (FNC)  
   Logistic regression, wired for FNC classification.  
   [Paper](https://doi.org/10.1080/01621459.1944.10500699)  
   [Code and bib item](https://github.com/neuroneural/meanMLP/blob/ml4fmri/src/ml4fmri/models/LR.py)
+
+- **"FBNetGen"** (Time Series + FNC)
+  Estimates connectivity from time series, fuses it with FNC to do classification.
+  [Paper](https://openreview.net/forum?id=oWFphg2IKon)
+  [Code and bib item](https://github.com/neuroneural/meanMLP/blob/ml4fmri/src/ml4fmri/models/FBNetGen.py)
 
 - **"BNT"** (FNC)
   Transformer/GNN model for FNC classification.

@@ -31,6 +31,7 @@ from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit
 import torch
 
 from collections import OrderedDict
+import builtins
 import warnings
 import logging
 import inspect
@@ -74,7 +75,6 @@ TS_MODELS = [
     'meanTransformer',
     'LSTM',
     'meanLSTM',
-    'FBNetGen',
     'DICE',
     'Glacier',
     'BolT'
@@ -84,6 +84,7 @@ FNC_MODELS = [
     'LR',
     'BNT',
     'BrainNetCNN',
+    'FBNetGen',
 ]
 
 def _discover_models():
@@ -131,7 +132,6 @@ def cvbench(
     """
     LOGGER = logging.getLogger("cvbench")
 
-
     # check data
     data = np.asarray(data)
     labels = np.asarray(labels)
@@ -147,8 +147,9 @@ def cvbench(
     C = np.unique(labels).shape[0]
     assert C >= 2, f"Expected at least 2 classes in labels; got {C}"
 
-    LOGGER.info(f"Got data in shape {data.shape} and labels in shape {labels.shape} ({np.unique(labels)} unique classes)")
-
+    LOGGER.info(f"Got DATA in shape {data.shape} and LABELS in shape {labels.shape}")
+    LOGGER.info(f"Unique labels: {np.unique(labels)}, Counts: {np.bincount(labels)}")
+    LOGGER.info(f"Assuming that (#Samples = {B}, Time = {T}, #Features = {D})")
 
     # detect devices: if anything other than CPU is available, test all models; otherwise use only lite models.
     if device is not None:
@@ -171,7 +172,7 @@ def cvbench(
     chosen_model_dict = {}
 
     available_model_dict = _discover_models() # scan ml4fmri.models for model classes
-    if models == 'all':
+    if models == 'all' or models == builtins.all: # second option for users who forget to put quotes
         chosen = MODELS
     elif models == 'lite':
         chosen = LITE_MODELS
@@ -186,6 +187,8 @@ def cvbench(
         chosen = models
         missing = [m for m in models if m not in available_model_dict]
         assert not missing, f"Models {missing} not found among available models: {list(available_model_dict.keys())}"
+    else:
+        raise ValueError(f"{models} (type {type(models)}) is not a valid model specification")
     chosen_model_dict = {m: available_model_dict[m] for m in chosen}
 
     # handle custom models passed by the user
@@ -212,6 +215,10 @@ def cvbench(
     LOGGER.info(
         f"Running models: {list(final_model_dict.keys())}"
     )
+
+    if any(fnc_model in final_model_dict for fnc_model in FNC_MODELS):
+        if D*D > 10000:
+            LOGGER.warning(f"HIGH DIM FNC: Given input time series with {D} features, the FNC matrices derived for FNC models will have {D*D} elements")
 
     # Run CV for each chosen model
     skf = StratifiedKFold(n_splits=int(n_folds), shuffle=True, random_state=int(random_state))
@@ -346,7 +353,17 @@ class Report(object):
             if np.nanmin(all_vals) <= 0.5 <= np.nanmax(all_vals):
                 ax.axhline(y=0.5, color='lightblue', linestyle='dashed', linewidth=1)
 
-        ax.boxplot(data, tick_labels=order, showfliers=show_outliers)
+        bp = ax.boxplot(
+            data, 
+            tick_labels=order, 
+            showfliers=show_outliers, 
+            patch_artist=True,
+            boxprops=dict(facecolor='white', edgecolor='black')
+        )
+        for patch, model in zip(bp['boxes'], order):
+            if model in FNC_MODELS:
+                patch.set_hatch('//')
+
         ax.set_ylabel("Test AUC" if metric == "test_auc" else metric)
         ax.grid(True, axis="y", linestyle=":", linewidth=0.5)
 
@@ -391,13 +408,19 @@ class Report(object):
         fig_h = max(4.0, 0.5 * n + 1.5)
         fig, ax = plt.subplots(figsize=(7.5, fig_h))
 
-        ax.boxplot(
+        bp = ax.boxplot(
             data,
             vert=False,
             positions=positions,
             showfliers=show_outliers,
             manage_ticks=False,   # we'll manage ticks/labels ourselves
+            patch_artist=True,
+            boxprops=dict(facecolor='white', edgecolor='black'),
         )
+        for patch, model in zip(bp['boxes'], order):
+            if model in FNC_MODELS:
+                patch.set_hatch('//')
+
         # draw blue dashed line at x = 0.5 if plotting an AUC metric
         if 'auc' in metric:
             all_vals = np.concatenate(data)
