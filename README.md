@@ -3,8 +3,8 @@
 
 A **one-line Python toolkit** for fMRI classification that allows you to benchmark multiple deep learning models for fMRI analysis on your data with a single function call. While designed for fMRI time series, it can work with any temporal classification task.
 
-Originally based on the codebase behind the NeuroImage paper ["A simple but tough-to-beat baseline for fMRI time-series classification"](https://doi.org/10.1016/j.neuroimage.2024.120909)
-
+Originally based on the codebase behind the NeuroImage paper ["A simple but tough-to-beat baseline for fMRI time-series classification"](https://doi.org/10.1016/j.neuroimage.2024.120909).
+This work was funded by the National Science Foundation grant 2112455, NIH grant R01MH123610, and in part by NIH grant R01MH129047.
 ## Use example
 
 You can install the package directly from PyPI:
