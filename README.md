@@ -1,6 +1,8 @@
 # meanMLP
 This repo contains the meanMLP model implementation and the experimental setup from the NeuroImage paper ["A simple but tough-to-beat baseline for fMRI time-series classification"](https://doi.org/10.1016/j.neuroimage.2024.120909).
 
+Also, check out the [ml4fmri](https://github.com/neuroneural/meanMLP/tree/ml4fmri) branch, it presents the models from the paper repackaged into a python library! 
+
 # 0. If you just want the meanMLP model source code
 Go to `src/models/mlp.py`.
 `meanMLP` and `default_HPs` is what you need.
