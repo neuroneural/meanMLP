@@ -16,7 +16,7 @@ resume: False # set to true if you want to resume an interrupted experiment (mus
 # wandb and project name
 prefix: null
 wandb_silent: True
-wandb_offline: False
+wandb_offline: True
 
 hydra:
   run:

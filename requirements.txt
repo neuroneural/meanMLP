@@ -5,7 +5,7 @@ wandb
 tqdm
 pylint
 captum
-matplotlib==3.6.3
+matplotlib
 ipykernel
 hydra-core
 seaborn
