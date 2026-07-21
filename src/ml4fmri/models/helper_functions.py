@@ -9,7 +9,6 @@ import torch
 from torch.nn.functional import cross_entropy, softmax
 from torch.utils.data import DataLoader, TensorDataset
 
-from sklearn.metrics import roc_auc_score
 from sklearn.metrics import (
     accuracy_score, balanced_accuracy_score, f1_score,
     roc_auc_score,
@@ -41,17 +40,18 @@ def basic_Adam_optimizer(model, lr):
     return optimizer
 
 
-def compute_metrics(y_prob, y_pred, y_true):
+def compute_metrics(y_prob, y_pred, y_true, compute_auc=True):
     """
     Compute a bundle of classification metrics.
     """
     log = {}
     log["accuracy"] = accuracy_score(y_true, y_pred)
     log["balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
-    if y_prob.shape[1] == 2: # binary classification
-        log["auc"] = roc_auc_score(y_true, y_prob[:, 1])
-    else: # multiclass classification
-        log["auc"] = roc_auc_score(y_true, y_prob, multi_class='ovr', average='macro')
+    if compute_auc:
+        if y_prob.shape[1] == 2: # binary classification
+            log["auc"] = roc_auc_score(y_true, y_prob[:, 1])
+        else: # multiclass classification
+            log["auc"] = roc_auc_score(y_true, y_prob, multi_class='ovr', average='macro')
     log["f1_macro"] = f1_score(y_true, y_pred, average="macro")
 
     return log
@@ -76,13 +76,13 @@ def basic_handle_batch(model, batch):
     logits, loss_load = model(*data)
     loss, loss_log = model.compute_loss(loss_load, labels)
 
-    # compute metrics
+    # stash predictions for later scoring
     y_prob = softmax(logits, dim=1).detach().cpu().numpy()
-    y_pred = y_prob.argmax(axis=1)
     y_true = labels.detach().cpu().numpy()
 
-    batch_log = compute_metrics(y_prob, y_pred, y_true)
-    batch_log.update(loss_log)
+    batch_log = dict(loss_log)
+    batch_log["y_prob"] = y_prob
+    batch_log["y_true"] = y_true
 
     return loss, batch_log
 
@@ -275,6 +275,7 @@ class BasicTrainer:
             total_loss = 0.0
             n_batches = len(loader)
             agg_log = {}
+            probs, trues = [], []   # pooled across the whole dataloader
 
             for batch in loader:
                 batch = tuple(t.to(self.device) for t in batch) # cast batch to device
@@ -287,13 +288,19 @@ class BasicTrainer:
                     loss.backward()
                     self.optimizer.step()
 
+                # accumulate per-batch scalar loss terms
                 for k, v in batch_log.items():
                     if isinstance(v, (int, float)):
                         agg_log[k] = agg_log.get(k, 0.0) + float(v)
+                probs.append(batch_log["y_prob"])
+                trues.append(batch_log["y_true"])
 
-            # average logs over batches
+            # losses: per-batch mean; metrics: computed once over the pooled epoch predictions
             agg_log = {k: v / n_batches for k, v in agg_log.items()}
             agg_log["loss"] = total_loss / n_batches
+            y_prob = np.vstack(probs)
+            y_true = np.hstack(trues)
+            agg_log.update(compute_metrics(y_prob, y_prob.argmax(axis=1), y_true))
             return agg_log
 
     def run(self):
