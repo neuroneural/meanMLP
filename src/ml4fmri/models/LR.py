@@ -43,7 +43,7 @@ class LR():
         """
         Initialize LR model.
         """
-        self.model = LogisticRegression()
+        self.model = LogisticRegression(max_iter=1000)
     def __call__(self, x):
         return self.forward(x)
     

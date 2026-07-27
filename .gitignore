@@ -6,7 +6,31 @@ __pycache__/
 /build/
 *.egg-info/
 .pytest_cache
+/.ruff_cache/
+/.mypy_cache/
+.ipynb_checkpoints/
+.coverage
+coverage.xml
+htmlcov/
 *.DS_Store*
+
+# Editors / IDEs
+.vscode/
+.idea/
+.history/
+*.code-workspace
+
+# Local environment files
+.env
+.env.*
+.python-version
+
+# Logs / temp files
+*.log
+*.out
+*.tmp
+*.bak
+*.swp
 
 assets/
 src/ml4fmri/models/old
