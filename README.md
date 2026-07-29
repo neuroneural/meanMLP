@@ -27,8 +27,9 @@ from ml4fmri import cvbench  # runs CV experiments with implemented models on th
 # ./cvbench_YYYYmmdd_HHMMSS/ directory or set to False to keep everything in memory.
 report = cvbench(DATA, LABELS, models='all', n_folds=5, save_dir='my_cvbench_run')
 
-# Plot test AUC boxplots for all models
+# Plot test AUC boxplots and confusion matrices for all models
 report.plot_scores()
+report.plot_confusion()
 
 # Access logs directly as variables
 train_df = report.get_train_dataframe()
@@ -38,10 +39,6 @@ meta     = report.get_meta()
 
 # Inspect training curves
 report.plot_training_curves()
-
-# Confusion matrices per model, pooled across folds — shows *how* a model is wrong,
-# which matters most for multiclass runs where one AUC hides the error structure
-report.plot_confusion()
 ```
 
 ## Results on disk
@@ -51,11 +48,11 @@ Everything is written as the run proceeds.
 ```
 my_cvbench_run/
 ├── cvbench_meta.json            # run configuration, seeds, environment, status
-├── cvbench_samples.csv          # pos,sample_id
 ├── cvbench_train.csv            # model,fold,epoch,... per-epoch training log
 ├── cvbench_test.csv             # model,fold,... one row per (model, fold)
 ├── cvbench_predictions.csv      # model,fold,sample_id,y_true,y_pred,p_0,...,p_{C-1}
-└── folds/
+└── fold_records/
+    ├── sample_order.csv         # pos,sample_id -- only written if sample_ids= was passed
     ├── fold_00/
     │   ├── indices.json         # positional train/val/test indices
     │   └── checkpoints/         # best-validation weights per model
@@ -68,7 +65,7 @@ my_cvbench_run/
 - **`cvbench_test.csv`** – final test metrics per model and fold, plus confusion counts, training time and parameter count. Confusion counts are named `cm_true{i}_pred{j}` for any number of classes.
 - **`cvbench_train.csv`** – train and validation metrics at every epoch; this is what `plot_training_curves()` draws.
 - **`cvbench_meta.json`** – the run's configuration, seeds and timing, plus a `status` field recording whether it finished.
-- **`cvbench_samples.csv`** – generated if you pass `sample_ids=` to `cvbench`; it maps row positions to your `sample_ids`, which is what links `indices.json` (positions) to the predictions (ids).
+- **`fold_records/sample_order.csv`** – generated if you pass `sample_ids=` to `cvbench`; it maps row positions to your `sample_ids` in the fold records.
 
 Set `save_checkpoints=False` to skip storing weights, or `save_dir=False` to keep results in memory only.
 
