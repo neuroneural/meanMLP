@@ -197,9 +197,9 @@ class LSTM(nn.Module):
             patience (int, optional): Early stopping patience (in epochs). Defaults to 30.
         Returns
         -------
-        FoldResults
-            `.train_log` (per-epoch DataFrame), `.test_metrics` (dict) and
-            `.predictions` (raw test-fold probabilities).
+        (train_log, test_log, predictions_log) : tuple of pandas.DataFrame
+            Each with "model" already stamped; cvbench adds "fold" (and, for
+            predictions_log, "sample_id").
         """
         
         trainer = BasicTrainer(

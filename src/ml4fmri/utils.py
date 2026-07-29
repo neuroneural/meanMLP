@@ -2,51 +2,54 @@
 Shared types and helpers.
 """
 
-from dataclasses import dataclass
-from typing import Optional
+import random
+import warnings
 
-import pandas as pd
+import numpy as np
+import torch
 
 
-@dataclass
-class FoldResults:
+# -----------------------------
+# Reproducibility helpers
+# -----------------------------
+
+def _seed_everything(seed: int):
     """
-    A dataclass of everything a single (model, fold) run in cvbench produces; the return type of `train_model`.
-
-    Attributes
-    ----------
-    train_log : pandas.DataFrame
-        One row per epoch, with "train_"/"val_"-prefixed metrics. Non-iterative
-        models (e.g. LR) return a single row.
-    test_metrics : dict
-        A flat dict of final test-set scores with "test_"-prefixed keys, plus bookkeeping such as
-        "train_time" and "n_params".
-    predictions : dict, optional
-        {"y_prob": (N, C) array, "y_true": (N,) array} for the test fold, in the
-        order the test set was passed in.
+    Seed the global RNGs (python, numpy, torch: CPU, CUDA, MPS).
     """
+    seed = int(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)  # seeds both the CPU and (if present) all CUDA generators
+    if torch.backends.mps.is_available():
+        torch.mps.manual_seed(seed)  # MPS has its own generator; not covered above
 
-    train_log: pd.DataFrame
-    test_metrics: dict
-    predictions: Optional[dict] = None
 
-    def __post_init__(self):
-        # Validate here rather than in cvbench, so that someone writing a custom
-        # model gets the complaint from the object they just built.
-        if not isinstance(self.train_log, pd.DataFrame):
-            raise TypeError(
-                f"FoldResults.train_log must be a pandas DataFrame with one row "
-                f"per epoch; got {type(self.train_log).__name__}"
-            )
-        if not isinstance(self.test_metrics, dict):
-            raise TypeError(
-                f"FoldResults.test_metrics must be a flat dict of test scores; "
-                f"got {type(self.test_metrics).__name__}"
-            )
-        if self.predictions is not None:
-            missing = {"y_prob", "y_true"} - set(self.predictions)
-            if missing:
-                raise ValueError(
-                    f"FoldResults.predictions is missing {sorted(missing)}; "
-                    'expected {"y_prob": (N, C) array, "y_true": (N,) array}'
-                )
+# -----------------------------
+# Checkpointing helpers
+# -----------------------------
+
+def _save_checkpoint(model, path_no_ext):
+    """
+    Persist a trained model: torch as a state_dict (`.pt`), anything else via joblib.
+
+    BasicTrainer restores best-validation weights before testing, so the live model
+    already holds what we want. Failures only warn -- losing weights should not cost
+    a whole run. Returns the written path, or None.
+    """
+    try:
+        if isinstance(model, torch.nn.Module):
+            path = path_no_ext + ".pt"
+            torch.save(model.state_dict(), path)
+        else:
+            import joblib  # ships with scikit-learn
+            path = path_no_ext + ".joblib"
+            joblib.dump(model, path)
+        return path
+    except Exception as exc:  # never let checkpointing kill a run
+        warnings.warn(
+            f"Could not save checkpoint to {path_no_ext}: {exc}. "
+            "Training results are unaffected.",
+            RuntimeWarning,
+        )
+        return None

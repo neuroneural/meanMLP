@@ -36,6 +36,23 @@ def toy_data():
     return X, y  # numpy arrays
 
 @pytest.fixture(scope="session")
+def toy_data_multiclass():
+    """
+    Deterministic balanced 4-class dataset, each class marked by its own feature.
+    Used to exercise the multiclass confusion columns and plotting.
+    """
+    rng = np.random.default_rng(0)
+    B, T, D, C = 80, 20, 6, 4
+
+    y = np.repeat(np.arange(C), B // C).astype(np.int64)
+    X = rng.normal(size=(B, T, D)).astype("float32")
+    for c in range(C):
+        X[y == c, :, c] += 0.6   # separable, but not perfectly
+
+    return X, y
+
+
+@pytest.fixture(scope="session")
 def dims(toy_data):
     X, y = toy_data
     _, _, D = X.shape

@@ -14,8 +14,7 @@ from .FBNetGen import FBNetGen
 from .BNT import BNT
 from .LR import LR
 from .helper_functions import BasicTrainer, compute_metrics
-from ..utils import FoldResults
 
 __all__ = ['meanMLP', 'LSTM', 'meanLSTM', 'Transformer', 'meanTransformer', 'BolT', 'DICE', 'Glacier', 'MILC', 'BrainNetCNN', 'FBNetGen', 'BNT', 'LR',
-           'BasicTrainer', 'compute_metrics', 'FoldResults']
+           'BasicTrainer', 'compute_metrics']
 

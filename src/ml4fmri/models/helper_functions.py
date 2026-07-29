@@ -17,8 +17,6 @@ from sklearn.metrics import (
 import time
 from copy import deepcopy
 
-from ..utils import FoldResults
-
 
 def basic_ce_loss(logits, targets):
     """
@@ -264,9 +262,9 @@ class BasicTrainer:
 
     Returns on `run()`
     ------------------
-    FoldResults
-        `.train_log` (per-epoch DataFrame), `.test_metrics` (dict of final test
-        scores) and `.predictions` (raw test-fold probabilities).
+    (train_log, test_log, predictions_log) : tuple of pandas.DataFrame
+        Each with "model" already stamped; cvbench adds "fold" (and, for
+        predictions_log, "sample_id").
     """
 
     def __init__(
@@ -383,20 +381,27 @@ class BasicTrainer:
 
 
         ### Test loop
-        test_metrics = {"model": self.model.__class__.__name__}
+        model_name = self.model.__class__.__name__
+        test_metrics = {"model": model_name}
         test_log, test_y_prob, test_y_true = self._epoch(self.test_loader, train=False)
         test_metrics.update({f"test_{k}": v for k, v in test_log.items()})
         test_metrics.update({
             "train_time": training_time,
             "n_params": self.n_params,
         })
+        test_logs = pd.DataFrame([test_metrics])
 
-        return FoldResults(
-            train_log=train_logs,
-            test_metrics=test_metrics,
-            # in test-loader order, which is the order the test set was passed in
-            predictions={"y_prob": test_y_prob, "y_true": test_y_true},
-        )
+        # raw test-fold predictions, in test-loader order (the order the test set
+        # was passed in); cvbench attaches "sample_id" and "fold"
+        predictions_log = pd.DataFrame({
+            "model": model_name,
+            "y_true": test_y_true.astype(int),
+            "y_pred": test_y_prob.argmax(axis=1).astype(int),
+        })
+        for c in range(test_y_prob.shape[1]):
+            predictions_log[f"p_{c}"] = test_y_prob[:, c]
+
+        return train_logs, test_logs, predictions_log
 
 class EarlyStopping:
     """Early stopping mechanism, watches if metric is minimized."""

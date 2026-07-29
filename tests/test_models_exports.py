@@ -11,6 +11,9 @@ def _is_model_class(obj):
         and hasattr(obj, "train_model")
     )
 
+# Names ml4fmri.models.__all__ exports that are helpers, not model classes.
+NON_MODEL_EXPORTS = {"BasicTrainer", "compute_metrics"}
+
 def test_models_all_is_complete():
     # import/refresh the package
     mdl = importlib.import_module("ml4fmri.models")
@@ -46,6 +49,8 @@ def test_models_all_is_complete():
 
     # Assert each exported name resolves to the actual class object
     for name in exported:
+        if name in NON_MODEL_EXPORTS:
+            continue
         obj = getattr(mdl, name, None)
         assert _is_model_class(obj), f"Exported name '{name}' is not a valid model class"
 

@@ -24,7 +24,6 @@ from sklearn.linear_model import LogisticRegression
 import time
 
 from .helper_functions import corrcoef_batch, compute_metrics
-from ..utils import FoldResults
 
 class LR():
     """
@@ -112,9 +111,9 @@ class LR():
             patience (optional): Kept for compatibility
         Returns
         -------
-        FoldResults
-            `.train_log` (per-epoch DataFrame), `.test_metrics` (dict) and
-            `.predictions` (raw test-fold probabilities).
+        (train_log, test_log, predictions_log) : tuple of pandas.DataFrame
+            Each with "model" already stamped; cvbench adds "fold" (and, for
+            predictions_log, "sample_id").
         """
         
         train_data, train_labels = train_loader
@@ -134,7 +133,8 @@ class LR():
         training_time = time.time() - start_time
 
         # train log
-        train_logs = {"model": "LR", "epoch": 0, "lr": 0}
+        model_name = self.__class__.__name__
+        train_logs = {"model": model_name, "epoch": 0, "lr": 0}
         y_score = self.model.predict_proba(train_data)
         y_pred = np.argmax(y_score, axis=-1).astype(np.int32)
         train_log = compute_metrics(y_true=train_labels, y_pred=y_pred, y_prob=y_score)
@@ -147,7 +147,7 @@ class LR():
         # test
         y_score = self.model.predict_proba(test_data)
         y_pred = np.argmax(y_score, axis=-1).astype(np.int32)
-        test_metrics = {"model": "LR"}
+        test_metrics = {"model": model_name}
         test_log = compute_metrics(y_true=test_labels, y_pred=y_pred, y_prob=y_score)
         test_metrics.update({f"test_{k}": v for k, v in test_log.items()})
         test_metrics.update({
@@ -155,13 +155,20 @@ class LR():
             "n_params": self.model.coef_.size,
         })
         test_metrics.update({"test_loss": np_cross_entropy(y_score, test_labels)})
+        test_logs = pd.DataFrame([test_metrics])
 
-        return FoldResults(
-            train_log=train_logs,
-            test_metrics=test_metrics,
-            # `test_data` is never shuffled, so this is in test-fold order
-            predictions={"y_prob": np.asarray(y_score), "y_true": np.asarray(test_labels)},
-        )
+        # raw test-fold predictions; `test_data` is never shuffled, so this is in
+        # test-fold order. cvbench attaches "sample_id" and "fold"
+        y_score = np.asarray(y_score)
+        predictions_log = pd.DataFrame({
+            "model": model_name,
+            "y_true": np.asarray(test_labels).astype(int),
+            "y_pred": y_score.argmax(axis=-1).astype(int),
+        })
+        for c in range(y_score.shape[1]):
+            predictions_log[f"p_{c}"] = y_score[:, c]
+
+        return train_logs, test_logs, predictions_log
 
 
 import numpy as np

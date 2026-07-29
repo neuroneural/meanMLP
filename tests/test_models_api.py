@@ -1,5 +1,6 @@
 # tests/test_models_api.py
 import importlib
+import inspect
 import pandas as pd
 import torch
 
@@ -27,6 +28,13 @@ def test_exported_models_api(toy_data, dims, toy_splits):
 
         def fail(msg):
             failures.append(f"[{name}] {msg}")
+
+        # ml4fmri.models.__all__ also exports helpers (BasicTrainer, compute_metrics)
+        # that aren't model classes at all; only exercise the actual model API.
+        if not (inspect.isclass(Model)
+                and hasattr(Model, "prepare_dataloader")
+                and hasattr(Model, "train_model")):
+            continue
 
         # Skip excluded models entirely
         if name in excluded_models:
@@ -118,16 +126,18 @@ def test_exported_models_api(toy_data, dims, toy_splits):
             except Exception as e:
                 fail(f"get_optimizer raised: {e}")
 
-        # 8) train_model (tiny run)
+        # 8) train_model (tiny run): returns (train_log, test_log, predictions_log)
         if not hasattr(m, "train_model"):
             fail("missing train_model")
         else:
             try:
-                tdf, sdf = m.train_model(train_dl, val_dl, test_dl, epochs=2, patience=1)
+                tdf, sdf, pdf = m.train_model(train_dl, val_dl, test_dl, epochs=2, patience=1)
                 if not (isinstance(tdf, pd.DataFrame) and "epoch" in tdf.columns):
-                    fail("train_model: train_df is not a DataFrame with 'epoch'")
+                    fail("train_model: train_log is not a DataFrame with 'epoch'")
                 if not isinstance(sdf, pd.DataFrame):
-                    fail("train_model: test_df is not a DataFrame")
+                    fail("train_model: test_log is not a DataFrame")
+                if not isinstance(pdf, pd.DataFrame):
+                    fail("train_model: predictions_log is not a DataFrame")
             except Exception as e:
                 fail(f"train_model raised: {e}")
 
