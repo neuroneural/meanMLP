@@ -23,22 +23,53 @@ Check out the 👉 [**Colab tutorial**](https://colab.research.google.com/drive/
 from ml4fmri import cvbench  # runs CV experiments with implemented models on the given data
 
 # Run cross-validation with all available models. See below for more info on available `models`
-report = cvbench(DATA, LABELS, models='all', n_folds=5)
+# Results are written to `save_dir` as the run proceeds; omit it to get a timestamped ./cvbench_YYYYmmdd_HHMMSS/ directory or set to False to keep everything in memory.
+report = cvbench(DATA, LABELS, models='all', n_folds=5, save_dir='my_cvbench_run')
 
 # Plot test AUC boxplots for all models
 report.plot_scores()
 
-# Save test and training dataframes as .csv, and metadata as .json
-report.save()
-
 # Access logs directly as variables
 train_df = report.get_train_dataframe()
 test_df  = report.get_test_dataframe()
+pred_df  = report.get_predictions_dataframe()  # raw test-fold probabilities
 meta     = report.get_meta()
 
 # Inspect training curves
 report.plot_training_curves()
+
+# Confusion matrices per model, pooled across folds — shows *how* a model is wrong,
+# which matters most for multiclass runs where one AUC hides the error structure
+report.plot_confusion()
 ```
+
+## Results on disk
+
+Everything is written as the run proceeds.
+
+```
+my_cvbench_run/
+├── cvbench_meta.json            # run configuration, seeds, environment, status
+├── cvbench_samples.csv          # pos,sample_id
+├── cvbench_train.csv            # model,fold,epoch,... per-epoch training log
+├── cvbench_test.csv             # model,fold,... one row per (model, fold)
+├── cvbench_predictions.csv      # model,fold,sample_id,y_true,y_pred,p_0,...,p_{C-1}
+└── folds/
+    ├── fold_00/
+    │   ├── indices.json         # positional train/val/test indices
+    │   └── checkpoints/         # best-validation weights per model
+    │       ├── meanMLP.pt
+    │       └── LR.joblib
+    └── fold_01/ ...
+```
+
+- **`cvbench_predictions.csv`** – the raw probability for every test sample under every model, so any probability- or threshold-based metric can be recomputed afterwards.
+- **`cvbench_test.csv`** – final test metrics per model and fold, plus confusion counts, training time and parameter count. Confusion counts are named `cm_true{i}_pred{j}` for any number of classes.
+- **`cvbench_train.csv`** – train and validation metrics at every epoch; this is what `plot_training_curves()` draws.
+- **`cvbench_meta.json`** – the run's configuration, seeds and timing, plus a `status` field recording whether it finished.
+- **`cvbench_samples.csv`** – generated if you pass `sample_ids=` to `cvbench`; it maps row positions to your `sample_ids`, which is what links `indices.json` (positions) to the predictions (ids).
+
+Set `save_checkpoints=False` to skip storing weights, or `save_dir=False` to keep results in memory only.
 
 
 ## Available Models

@@ -24,6 +24,7 @@ from sklearn.linear_model import LogisticRegression
 import time
 
 from .helper_functions import corrcoef_batch, compute_metrics
+from ..utils import FoldResults
 
 class LR():
     """
@@ -111,8 +112,9 @@ class LR():
             patience (optional): Kept for compatibility
         Returns
         -------
-        (train_logs, test_logs)
-            Training and test dataframes containing loss and accuracy metrics.
+        FoldResults
+            `.train_log` (per-epoch DataFrame), `.test_metrics` (dict) and
+            `.predictions` (raw test-fold probabilities).
         """
         
         train_data, train_labels = train_loader
@@ -145,18 +147,21 @@ class LR():
         # test
         y_score = self.model.predict_proba(test_data)
         y_pred = np.argmax(y_score, axis=-1).astype(np.int32)
-        test_logs = {"model": "LR"}
+        test_metrics = {"model": "LR"}
         test_log = compute_metrics(y_true=test_labels, y_pred=y_pred, y_prob=y_score)
-        test_logs.update({f"test_{k}": v for k, v in test_log.items()})
-        test_logs.update({
+        test_metrics.update({f"test_{k}": v for k, v in test_log.items()})
+        test_metrics.update({
             "train_time": training_time,
             "n_params": self.model.coef_.size,
         })
-        test_loss = np_cross_entropy(y_score, test_labels)
-        test_logs.update({"test_loss": test_loss})
-        test_logs = pd.DataFrame([test_logs])
+        test_metrics.update({"test_loss": np_cross_entropy(y_score, test_labels)})
 
-        return train_logs, test_logs
+        return FoldResults(
+            train_log=train_logs,
+            test_metrics=test_metrics,
+            # `test_data` is never shuffled, so this is in test-fold order
+            predictions={"y_prob": np.asarray(y_score), "y_true": np.asarray(test_labels)},
+        )
 
 
 import numpy as np

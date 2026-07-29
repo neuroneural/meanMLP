@@ -11,11 +11,13 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from sklearn.metrics import (
     accuracy_score, balanced_accuracy_score, f1_score,
-    roc_auc_score,
+    roc_auc_score, confusion_matrix,
 )
 
 import time
 from copy import deepcopy
+
+from ..utils import FoldResults
 
 
 def basic_ce_loss(logits, targets):
@@ -40,9 +42,28 @@ def basic_Adam_optimizer(model, lr):
     return optimizer
 
 
-def compute_metrics(y_prob, y_pred, y_true, compute_auc=True):
+def compute_metrics(y_prob, y_pred, y_true, compute_auc=True, compute_confusion=True):
     """
     Compute a bundle of classification metrics.
+
+    Parameters
+    ----------
+    y_prob : array (N, C)
+        Predicted class probabilities.
+    y_pred : array (N,)
+        Predicted class labels.
+    y_true : array (N,)
+        True class labels.
+    compute_auc : bool, optional
+        Whether to compute ROC AUC.
+    compute_confusion : bool, optional
+        Whether to add confusion matrix counts to the log.
+
+    Returns
+    -------
+    log : dict
+        Metric name -> value. The caller is expected to prefix keys with
+        "train_"/"val_"/"test_".
     """
     log = {}
     log["accuracy"] = accuracy_score(y_true, y_pred)
@@ -54,7 +75,29 @@ def compute_metrics(y_prob, y_pred, y_true, compute_auc=True):
             log["auc"] = roc_auc_score(y_true, y_prob, multi_class='ovr', average='macro')
     log["f1_macro"] = f1_score(y_true, y_pred, average="macro")
 
+    if compute_confusion:
+        log.update(confusion_counts(y_pred, y_true, n_classes=y_prob.shape[1]))
+
     return log
+
+
+def confusion_counts(y_pred, y_true, n_classes):
+    """
+    Confusion matrix as a flat dict of counts, suitable for a dataframe row.
+
+    For a binary problem with the usual "class 1 is positive" reading, the four
+    keys map onto the conventional names as:
+
+        cm_true0_pred0 = TN        cm_true0_pred1 = FP
+        cm_true1_pred0 = FN        cm_true1_pred1 = TP
+
+    """
+    cm = confusion_matrix(y_true, y_pred, labels=list(range(n_classes)))
+    return {
+        f"cm_true{i}_pred{j}": int(cm[i, j])
+        for i in range(n_classes)
+        for j in range(n_classes)
+    }
 
 
 def basic_handle_batch(model, batch):
@@ -221,10 +264,9 @@ class BasicTrainer:
 
     Returns on `run()`
     ------------------
-    train_df : pandas.DataFrame
-        Training log useful for training analysis. Can be used to check training curves.
-    test_df : pandas.DataFrame
-        Test log with classification scores.
+    FoldResults
+        `.train_log` (per-epoch DataFrame), `.test_metrics` (dict of final test
+        scores) and `.predictions` (raw test-fold probabilities).
     """
 
     def __init__(
@@ -301,7 +343,10 @@ class BasicTrainer:
             y_prob = np.vstack(probs)
             y_true = np.hstack(trues)
             agg_log.update(compute_metrics(y_prob, y_prob.argmax(axis=1), y_true))
-            return agg_log
+            # y_prob/y_true are pooled in loader order; for a shuffle=False loader
+            # that is the order of the underlying dataset, which is what lets
+            # cvbench map test predictions back to sample indices. MAY BREAK IN THE FUTURE.
+            return agg_log, y_prob, y_true
 
     def run(self):
         train_logs = []
@@ -310,8 +355,8 @@ class BasicTrainer:
         ### Training loop
         start = time.time()
         for epoch in range(self.epochs):
-            train_log = self._epoch(self.train_loader, train=True)
-            val_log = self._epoch(self.val_loader, train=False)
+            train_log, _, _ = self._epoch(self.train_loader, train=True)
+            val_log, _, _ = self._epoch(self.val_loader, train=False)
 
             # handle logs
             epoch_log = {"model": self.model.__class__.__name__, "epoch": epoch, "lr": self.lr}
@@ -338,17 +383,20 @@ class BasicTrainer:
 
 
         ### Test loop
-        test_logs = {"model": self.model.__class__.__name__}
-        test_log = self._epoch(self.test_loader, train=False)
-        test_log = {f"test_{k}": v for k, v in test_log.items()}
-        test_logs.update(test_log)
-        test_logs.update({
+        test_metrics = {"model": self.model.__class__.__name__}
+        test_log, test_y_prob, test_y_true = self._epoch(self.test_loader, train=False)
+        test_metrics.update({f"test_{k}": v for k, v in test_log.items()})
+        test_metrics.update({
             "train_time": training_time,
             "n_params": self.n_params,
         })
-        test_logs = pd.DataFrame([test_logs])
 
-        return train_logs, test_logs
+        return FoldResults(
+            train_log=train_logs,
+            test_metrics=test_metrics,
+            # in test-loader order, which is the order the test set was passed in
+            predictions={"y_prob": test_y_prob, "y_true": test_y_true},
+        )
 
 class EarlyStopping:
     """Early stopping mechanism, watches if metric is minimized."""

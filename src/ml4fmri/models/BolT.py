@@ -242,8 +242,9 @@ class BolT(nn.Module):
             patience (int, optional): Early stopping patience (in epochs). Defaults to 30.
         Returns
         -------
-        (train_logs, test_logs)
-            Training and test dataframes containing loss and accuracy metrics.
+        FoldResults
+            `.train_log` (per-epoch DataFrame), `.test_metrics` (dict) and
+            `.predictions` (raw test-fold probabilities).
         """
         trainer = BasicTrainer(
             model=self,
@@ -255,8 +256,7 @@ class BolT(nn.Module):
             device=device,
             patience=patience,
         )
-        train_logs, test_logs = trainer.run()
-        return train_logs, test_logs
+        return trainer.run()
 
 
 # ==== BolT submodules and utilities ====
