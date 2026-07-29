@@ -23,7 +23,8 @@ Check out the 👉 [**Colab tutorial**](https://colab.research.google.com/github
 from ml4fmri import cvbench  # runs CV experiments with implemented models on the given data
 
 # Run cross-validation with all available models. See below for more info on available `models`
-# Results are written to `save_dir` as the run proceeds; omit it to get a timestamped ./cvbench_YYYYmmdd_HHMMSS/ directory or set to False to keep everything in memory.
+# Results are written to `save_dir` as the run proceeds; omit it to get a timestamped 
+# ./cvbench_YYYYmmdd_HHMMSS/ directory or set to False to keep everything in memory.
 report = cvbench(DATA, LABELS, models='all', n_folds=5, save_dir='my_cvbench_run')
 
 # Plot test AUC boxplots for all models
